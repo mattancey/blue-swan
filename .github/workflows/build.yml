@@ -1,0 +1,36 @@
+name: Build Blue Swan (macOS)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build-macos:
+    name: Build on macOS
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -G Xcode \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+
+      - name: Build Blue Swan
+        run: cmake --build build --config Release --parallel 4
+
+      - name: Upload Artifacts (AU & VST3)
+        uses: actions/upload-artifact@v5
+        with:
+          name: Blue-Swan-macOS
+          path: |
+            build/BlueSwan_artefacts/Release/VST3/Blue Swan.vst3
+            build/BlueSwan_artefacts/Release/AU/Blue Swan.component
+          if-no-files-found: warn
