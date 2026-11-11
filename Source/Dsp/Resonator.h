@@ -1,6 +1,7 @@
 #pragma once
 #include <juce_dsp/juce_dsp.h>
 #include <vector>
+#include <random>
 
 class Resonator
 {
@@ -14,6 +15,8 @@ public:
     void setInputCutoff(float cutoffHz);
     void setLoopCutoff(float cutoffHz);
     void setDryWet(float dryWet);
+    void setJitter(float jitterAmount);
+    void setCrossFeedback(float crossAmt);
 
     void process(juce::AudioBuffer<float>& buffer);
 
@@ -62,6 +65,11 @@ private:
     juce::SmoothedValue<float> pitchSemitonesSmoothed;
     juce::SmoothedValue<float> feedbackSmoothed;
     juce::SmoothedValue<float> dryWetSmoothed;
+    juce::SmoothedValue<float> jitterSmoothed;
+    juce::SmoothedValue<float> crossFbSmoothed;
+
+    std::mt19937 jitterGen;
+    std::uniform_real_distribution<float> jitterDist { -1.0f, 1.0f };
 
     float semitonesToDelaySamples(float semitones) const noexcept;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Resonator)
