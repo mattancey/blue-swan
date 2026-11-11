@@ -15,7 +15,7 @@ public:
     void setInputCutoff(float cutoffHz);
     void setLoopCutoff(float cutoffHz);
     void setDryWet(float dryWet);
-    void setJitter(float jitterAmount); // Drift
+    void setJitter(float jitterAmount);
     void setCrossFeedback(float crossAmt);
     void setPolarity(bool isNegative);
     void setSelfMod(float selfModAmount);
@@ -61,7 +61,7 @@ private:
         juce::dsp::StateVariableTPTFilter<float> inputFilter;
         OnePoleLP loopFilter;
         DCBlocker dcBlocker;
-        OnePoleLP modFilter; // Filtre pour le self-mod
+        OnePoleLP modFilter;
     };
 
     std::vector<ChannelState> channels;
@@ -71,11 +71,11 @@ private:
     juce::SmoothedValue<float> jitterSmoothed;
     juce::SmoothedValue<float> crossFbSmoothed;
     juce::SmoothedValue<float> selfModSmoothed;
-    float polarityMultiplier = 1.0f; // +1 ou -1
+    float polarityMultiplier = 1.0f;
 
     std::mt19937 jitterGen;
     std::uniform_real_distribution<float> jitterDist { -1.0f, 1.0f };
-    float jitterState[2] = {0.0f, 0.0f}; // Pour lisser le jitter
+    float jitterState[2] = {0.0f, 0.0f};
 
     float semitonesToDelaySamples(float semitones) const noexcept;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Resonator)
