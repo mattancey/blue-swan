@@ -7,6 +7,7 @@ Resonator::Resonator()
     dryWetSmoothed.setCurrentAndTargetValue(0.5f);
     jitterSmoothed.setCurrentAndTargetValue(0.0f);
     crossFbSmoothed.setCurrentAndTargetValue(0.0f);
+    selfModSmoothed.setCurrentAndTargetValue(0.0f);
     jitterGen.seed(std::random_device{}());
 }
 
@@ -28,13 +29,15 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
         ch.inputFilter.reset();
         ch.loopFilter.reset();
         ch.dcBlocker.reset();
+        ch.modFilter.setCutoff(20.0f, (float) sampleRate); // Filtre très bas pour le self-mod
     }
 
     pitchSemitonesSmoothed.reset(sampleRate, 0.05);
     feedbackSmoothed.reset(sampleRate, 0.02);
     dryWetSmoothed.reset(sampleRate, 0.02);
-    jitterSmoothed.reset(sampleRate, 0.05);
-    crossFbSmoothed.reset(sampleRate, 0.02);
+    jitterSmoothed.reset(sampleRate, 0.1); // Lissage plus lent pour le drift
+    crossFbSmoothed.reset(sampleRate, 0.05);
+    selfModSmoothed.reset(sampleRate, 0.05);
 }
 
 void Resonator::reset()
@@ -45,7 +48,10 @@ void Resonator::reset()
         ch.inputFilter.reset();
         ch.loopFilter.reset();
         ch.dcBlocker.reset();
+        ch.modFilter.reset();
     }
+    jitterState[0] = 0.0f;
+    jitterState[1] = 0.0f;
 }
 
 void Resonator::setPitchSemitones(float semitones) { pitchSemitonesSmoothed.setTargetValue(juce::jlimit(-36.0f, 36.0f, semitones)); }
@@ -55,6 +61,8 @@ void Resonator::setLoopCutoff(float cutoffHz) { currentLoopCutoff = juce::jlimit
 void Resonator::setDryWet(float dryWet) { dryWetSmoothed.setTargetValue(juce::jlimit(0.0f, 1.0f, dryWet)); }
 void Resonator::setJitter(float jitterAmount) { jitterSmoothed.setTargetValue(juce::jlimit(0.0f, 1.0f, jitterAmount)); }
 void Resonator::setCrossFeedback(float crossAmt) { crossFbSmoothed.setTargetValue(juce::jlimit(0.0f, 0.98f, crossAmt)); }
+void Resonator::setSelfMod(float selfModAmount) { selfModSmoothed.setTargetValue(juce::jlimit(0.0f, 1.0f, selfModAmount)); }
+void Resonator::setPolarity(bool isNegative) { polarityMultiplier = isNegative ? -1.0f : 1.0f; }
 
 float Resonator::semitonesToDelaySamples(float semitones) const noexcept
 {
@@ -74,61 +82,84 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
         channels[(size_t) ch].loopFilter.setCutoff(currentLoopCutoff, (float) currentSampleRate);
     }
 
+    // Buffers pour stocker les sorties de la boucle (pour le cross-feedback et le self-mod)
+    std::vector<float> loopOutputs((size_t) numChannels, 0.0f);
+
     for (int i = 0; i < numSamples; ++i)
     {
         const float pitchSt = pitchSemitonesSmoothed.getNextValue();
-        const float fb = feedbackSmoothed.getNextValue();
+        const float fb = feedbackSmoothed.getNextValue() * polarityMultiplier; // POLARITÉ ICI
         const float wetMix = dryWetSmoothed.getNextValue();
-        const float jit = jitterSmoothed.getNextValue();
+        const float drift = jitterSmoothed.getNextValue();
         const float crossFB = crossFbSmoothed.getNextValue();
+        const float selfModAmt = selfModSmoothed.getNextValue();
         
         float delaySamples = semitonesToDelaySamples(pitchSt);
         
-        // Ajout du Jitter analogique (instabilité du BBD)
-        if (jit > 0.001f) {
-            float jitterOffset = jitterDist(jitterGen) * jit * (currentSampleRate * 0.002f); 
-            delaySamples += jitterOffset;
+        // --- DRIFT (ex-Jitter) : modulation lente et lissée du temps de retard ---
+        if (drift > 0.001f) {
+            for (int ch = 0; ch < numChannels; ++ch) {
+                // On génère un bruit aléatoire qu'on filtre très fortement pour n'avoir qu'une dérive lente
+                float noise = jitterDist(jitterGen);
+                jitterState[ch] += 0.001f * (noise - jitterState[ch]); // Lissage extrême
+                // La profondeur du drift est proportionnelle à la valeur du knob (max ~5ms)
+                delaySamples += jitterState[ch] * drift * (currentSampleRate * 0.005f);
+            }
             delaySamples = juce::jlimit(4.0f, maxDelaySamples - 8.0f, delaySamples);
         }
 
-        // Tableau pour stocker les sorties filtrées (pour le Cross-Feedback)
-        float loopOutputs[2] = { 0.0f, 0.0f };
+        // --- SELF-MOD (SOMA Lyra-8) : la sortie module le temps de retard ---
+        if (selfModAmt > 0.001f && numChannels > 0) {
+            // On utilise la somme des sorties filtrées (ou un canal spécifique) comme modulateur
+            float modulator = 0.0f;
+            for (int ch = 0; ch < numChannels; ++ch) {
+                modulator += channels[(size_t) ch].modFilter.process(loopOutputs[(size_t) ch]);
+            }
+            modulator /= (float) numChannels;
+            // La modulation peut être positive ou négative, créant un effet de "warble" extrême
+            delaySamples += modulator * selfModAmt * (currentSampleRate * 0.01f); // Profondeur max ~10ms
+            delaySamples = juce::jlimit(4.0f, maxDelaySamples - 8.0f, delaySamples);
+        }
 
+        // --- PREMIÈRE PASSE : LECTURE DU DELAI ET FILTRAGE ---
         for (int ch = 0; ch < numChannels; ++ch)
         {
             auto& state = channels[(size_t) ch];
-            const float dry = buffer.getReadPointer(ch)[i];
-
             state.delayLine.setDelay(delaySamples);
             const float delayed = state.delayLine.popSample(0);
 
             float loopFiltered = state.loopFilter.process(delayed);
             loopFiltered = state.dcBlocker.process(loopFiltered);
-            loopOutputs[ch] = loopFiltered;
+            
+            // On stocke la sortie filtrée de la boucle. C'est CE signal qui va servir au cross-feedback et au self-mod.
+            loopOutputs[(size_t) ch] = loopFiltered;
         }
 
+        // --- SECONDE PASSE : ECRITURE DANS LE DELAI (avec cross-feedback) ---
         for (int ch = 0; ch < numChannels; ++ch)
         {
             auto& state = channels[(size_t) ch];
             const float dry = buffer.getReadPointer(ch)[i];
             
-            // Récupération du feedback croisé (SOMA style)
+            // CROSS-FEEDBACK : on injecte la sortie filtrée de l'AUTRE canal
             float crossFeedbackSignal = 0.0f;
             if (numChannels == 2) {
                 int otherCh = 1 - ch;
-                crossFeedbackSignal = loopOutputs[otherCh] * crossFB;
+                crossFeedbackSignal = loopOutputs[(size_t) otherCh] * crossFB;
             }
 
             const float inputFiltered = state.inputFilter.processSample(0, dry);
             
-            // LA FORMULE SACRÉE : On garde exactement la même base
-            float toWrite = inputFiltered + (loopOutputs[ch] * fb) + crossFeedbackSignal;
+            // LA FORMULE MAGIQUE : entrée + feedback local (avec polarité) + cross-feedback
+            float toWrite = inputFiltered + (loopOutputs[(size_t) ch] * fb) + crossFeedbackSignal;
+            
+            // Saturation douce pour la stabilité (le tanh est notre ami)
             toWrite = std::tanh(toWrite);
 
             state.delayLine.pushSample(0, toWrite);
 
-            // Mix dry/wet (incluant un peu du cross feedback dans le wet)
-            float wetSignal = loopOutputs[ch] + crossFeedbackSignal;
+            // Mix dry/wet : on inclut le cross-feedback dans le signal wet pour plus de largeur
+            float wetSignal = loopOutputs[(size_t) ch] + crossFeedbackSignal;
             buffer.getWritePointer(ch)[i] = dry * (1.0f - wetMix) + wetSignal * wetMix;
         }
     }
