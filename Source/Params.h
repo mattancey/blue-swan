@@ -9,24 +9,26 @@ namespace Params
     inline constexpr auto loopCutoff = "loopCutoff";
     inline constexpr auto dryWet = "dryWet";
     inline constexpr auto macro = "macro";
-    inline constexpr auto jitter = "jitter";
+    inline constexpr auto jitter = "jitter"; // Désormais = "Drift"
     inline constexpr auto crossFb = "crossFb";
+    inline constexpr auto polarity = "polarity"; // Nouveau
+    inline constexpr auto selfMod = "selfMod";   // Nouveau
 
     inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     {
         juce::AudioProcessorValueTreeState::ParameterLayout layout;
         
-        // Paramètres de base
         layout.add(std::make_unique<juce::AudioParameterFloat>(pitch, "Pitch", juce::NormalisableRange<float>(-36.0f, 36.0f, 0.01f), 0.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>(feedback, "Feedback", juce::NormalisableRange<float>(0.0f, 0.98f, 0.001f), 0.85f));
         layout.add(std::make_unique<juce::AudioParameterFloat>(inputCutoff, "Input Cutoff", juce::NormalisableRange<float>(100.0f, 20000.0f, 1.0f, 0.3f), 8000.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>(loopCutoff, "Loop Cutoff", juce::NormalisableRange<float>(100.0f, 20000.0f, 1.0f, 0.3f), 4000.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>(dryWet, "Dry/Wet", juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.5f));
         
-        // Nouveaux paramètres
         layout.add(std::make_unique<juce::AudioParameterFloat>(macro, "Macro", juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.0f));
-        layout.add(std::make_unique<juce::AudioParameterFloat>(jitter, "Jitter", juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>(jitter, "Drift", juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.0f)); // Renommé Drift
         layout.add(std::make_unique<juce::AudioParameterFloat>(crossFb, "Cross FB", juce::NormalisableRange<float>(0.0f, 0.98f, 0.001f), 0.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>(selfMod, "Self-Mod", juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.0f)); // Nouveau
+        layout.add(std::make_unique<juce::AudioParameterChoice>(polarity, "Polarity", juce::StringArray{"Positive", "Negative"}, 0)); // Nouveau
         
         return layout;
     }
