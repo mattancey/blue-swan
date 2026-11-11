@@ -33,11 +33,32 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     for (int i = getTotalNumInputChannels(); i < getTotalNumOutputChannels(); ++i)
         buffer.clear(i, 0, buffer.getNumSamples());
 
-    resonator.setPitchSemitones(apvts.getRawParameterValue(Params::pitch)->load());
-    resonator.setFeedback(apvts.getRawParameterValue(Params::feedback)->load());
-    resonator.setInputCutoff(apvts.getRawParameterValue(Params::inputCutoff)->load());
-    resonator.setLoopCutoff(apvts.getRawParameterValue(Params::loopCutoff)->load());
-    resonator.setDryWet(apvts.getRawParameterValue(Params::dryWet)->load());
+    // Récupération des valeurs de base
+    float basePitch = apvts.getRawParameterValue(Params::pitch)->load();
+    float baseFeedback = apvts.getRawParameterValue(Params::feedback)->load();
+    float baseInputCutoff = apvts.getRawParameterValue(Params::inputCutoff)->load();
+    float baseLoopCutoff = apvts.getRawParameterValue(Params::loopCutoff)->load();
+    float dryWet = apvts.getRawParameterValue(Params::dryWet)->load();
+    float jitter = apvts.getRawParameterValue(Params::jitter)->load();
+    float crossFb = apvts.getRawParameterValue(Params::crossFb)->load();
+    
+    // Logique du Macro-Contrôle (NightSky)
+    float macroValue = apvts.getRawParameterValue(Params::macro)->load();
+    if (macroValue > 0.001f) {
+        // Plus le macro monte, plus on transpose aigu, on ouvre les filtres et on pousse le feedback
+        basePitch += macroValue * 24.0f; // +2 octaves max
+        baseInputCutoff *= (1.0f + macroValue * 3.0f); // Ouvre jusqu'à 4x
+        baseLoopCutoff *= (1.0f + macroValue * 3.0f);
+        baseFeedback = juce::jmin(0.98f, baseFeedback + (macroValue * 0.1f)); // Pousse le feedback
+    }
+
+    resonator.setPitchSemitones(basePitch);
+    resonator.setFeedback(baseFeedback);
+    resonator.setInputCutoff(juce::jmin(20000.0f, baseInputCutoff));
+    resonator.setLoopCutoff(juce::jmin(20000.0f, baseLoopCutoff));
+    resonator.setDryWet(dryWet);
+    resonator.setJitter(jitter);
+    resonator.setCrossFeedback(crossFb);
 
     resonator.process(buffer);
 }
