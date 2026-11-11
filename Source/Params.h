@@ -9,10 +9,10 @@ namespace Params
     inline constexpr auto loopCutoff = "loopCutoff";
     inline constexpr auto dryWet = "dryWet";
     inline constexpr auto macro = "macro";
-    inline constexpr auto jitter = "jitter"; // Désormais = "Drift"
+    inline constexpr auto jitter = "jitter";
     inline constexpr auto crossFb = "crossFb";
-    inline constexpr auto polarity = "polarity"; // Nouveau
-    inline constexpr auto selfMod = "selfMod";   // Nouveau
+    inline constexpr auto polarity = "polarity";
+    inline constexpr auto selfMod = "selfMod";
 
     inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     {
@@ -25,10 +25,10 @@ namespace Params
         layout.add(std::make_unique<juce::AudioParameterFloat>(dryWet, "Dry/Wet", juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.5f));
         
         layout.add(std::make_unique<juce::AudioParameterFloat>(macro, "Macro", juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.0f));
-        layout.add(std::make_unique<juce::AudioParameterFloat>(jitter, "Drift", juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.0f)); // Renommé Drift
+        layout.add(std::make_unique<juce::AudioParameterFloat>(jitter, "Drift", juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>(crossFb, "Cross FB", juce::NormalisableRange<float>(0.0f, 0.98f, 0.001f), 0.0f));
-        layout.add(std::make_unique<juce::AudioParameterFloat>(selfMod, "Self-Mod", juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.0f)); // Nouveau
-        layout.add(std::make_unique<juce::AudioParameterChoice>(polarity, "Polarity", juce::StringArray{"Positive", "Negative"}, 0)); // Nouveau
+        layout.add(std::make_unique<juce::AudioParameterFloat>(selfMod, "Self-Mod", juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.0f));
+        layout.add(std::make_unique<juce::AudioParameterChoice>(polarity, "Polarity", juce::StringArray{"Positive", "Negative"}, 0));
         
         return layout;
     }
