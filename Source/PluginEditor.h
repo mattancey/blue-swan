@@ -14,11 +14,16 @@ public:
 
 private:
     BlueSwanAudioProcessor& processorRef;
-    juce::Slider pitchSlider, feedbackSlider, inputCutoffSlider, loopCutoffSlider, dryWetSlider;
-    juce::Label pitchLabel, feedbackLabel, inputCutoffLabel, loopCutoffLabel, dryWetLabel;
+    
+    // Macro mis en avant
+    juce::Slider macroSlider;
+    juce::Label macroLabel;
+
+    juce::Slider pitchSlider, feedbackSlider, inputCutoffSlider, loopCutoffSlider, dryWetSlider, jitterSlider, crossFbSlider;
+    juce::Label pitchLabel, feedbackLabel, inputCutoffLabel, loopCutoffLabel, dryWetLabel, jitterLabel, crossFbLabel;
 
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
-    std::unique_ptr<SliderAttachment> pitchAttachment, feedbackAttachment, inputCutoffAttachment, loopCutoffAttachment, dryWetAttachment;
+    std::unique_ptr<SliderAttachment> macroAttachment, pitchAttachment, feedbackAttachment, inputCutoffAttachment, loopCutoffAttachment, dryWetAttachment, jitterAttachment, crossFbAttachment;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BlueSwanAudioProcessorEditor)
 };
