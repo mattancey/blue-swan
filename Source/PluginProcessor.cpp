@@ -33,7 +33,6 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     for (int i = getTotalNumInputChannels(); i < getTotalNumOutputChannels(); ++i)
         buffer.clear(i, 0, buffer.getNumSamples());
 
-    // Récupération BPM
     double bpm = 120.0;
     if (auto* playHead = getPlayHead()) {
         if (auto pos = playHead->getPosition()) {
@@ -41,7 +40,6 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
         }
     }
 
-    // Appel au Resonator avec TOUS les paramètres
     resonator.process(buffer,
         apvts.getRawParameterValue(Params::pitch)->load(),
         apvts.getRawParameterValue(Params::feedback)->load(),
@@ -60,11 +58,11 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
         apvts.getRawParameterValue(Params::wetGain)->load(),
         apvts.getRawParameterValue(Params::freezeTilt)->load(),
         (int)apvts.getRawParameterValue(Params::lfoShape)->load(),
-        apvts.getRawParameterValue(Params::lfoRate)->load(), // Utilisé comme index en Sync
+        apvts.getRawParameterValue(Params::lfoRate)->load(),
         apvts.getRawParameterValue(Params::lfoPhase)->load(),
         apvts.getRawParameterValue(Params::lfoChaos)->load(),
         apvts.getRawParameterValue(Params::lfoPulseWidth)->load(),
-        apvts.getRawParameterValue(Params::lfoSync)->load() > 0.5f,
+        (int)apvts.getRawParameterValue(Params::lfoSync)->load(), // Envoi de l'index (0-15)
         (float)bpm,
         (int)apvts.getRawParameterValue(Params::m1Dest)->load(), apvts.getRawParameterValue(Params::m1Depth)->load(),
         (int)apvts.getRawParameterValue(Params::m2Dest)->load(), apvts.getRawParameterValue(Params::m2Depth)->load(),
@@ -72,7 +70,6 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
         (int)apvts.getRawParameterValue(Params::m4Dest)->load(), apvts.getRawParameterValue(Params::m4Depth)->load()
     );
     
-    // Freeze parameter update
     resonator.setFreeze(apvts.getRawParameterValue(Params::freeze)->load() > 0.5f);
 }
 
