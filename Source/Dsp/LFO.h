@@ -1,4 +1,5 @@
 #pragma once
+#include <juce_core/juce_core.h>
 #include <cmath>
 #include <random>
 
@@ -19,9 +20,8 @@ public:
         phase += frequencyHz / (float)sampleRate;
         if (phase >= 1.0f) {
             phase -= 1.0f;
-            // Actions au changement de cycle
             shValue = dist(gen);
-            logX = 0.1f + (dist(gen) * 0.5f + 0.5f) * 0.8f; // initialisation chaos
+            logX = 0.1f + (dist(gen) * 0.5f + 0.5f) * 0.8f; 
         }
 
         float p = phase + (phaseOffsetDegrees / 360.0f);
@@ -40,17 +40,21 @@ public:
             case 7: val = std::exp(-5.0f * p) * 2.0f - 1.0f; break; // Exp Decay
             case 8: val = (1.0f - std::exp(-5.0f * p)) * 2.0f - 1.0f; break; // Exp Rise
             case 9: val = shValue; break; // S&H
-            case 10: // Smooth Random
+            case 10: 
                 smoothValue += 0.01f * (shValue - smoothValue);
                 val = smoothValue;
-                break;
-            case 11: // Logistic Map
+                break; // Smooth Random
+            case 11: 
                 logX = chaos * logX * (1.0f - logX);
                 val = logX * 2.0f - 1.0f;
-                break;
+                break; // Logistic Map
             case 12: val = std::floor(p * 4.0f) / 3.0f * 2.0f - 1.0f; break; // Staircase
             case 13: val = std::sin(p * 4.0f * 3.1415926f); break; // Double Sine
-            case 14: val = std::sin(p * 3.1415926f) * 1.5f; if (val > 1.0f) val = 2.0f - val; if (val < -1.0f) val = -2.0f - val; break; // SOMA (Fold)
+            case 14: 
+                val = std::sin(p * 3.1415926f) * 1.5f; 
+                if (val > 1.0f) val = 2.0f - val; 
+                if (val < -1.0f) val = -2.0f - val; 
+                break; // SOMA (Fold)
             default: val = 0.0f; break;
         }
         return val;
