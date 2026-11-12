@@ -11,8 +11,6 @@ public:
     Resonator();
     void prepare(double sampleRate, int samplesPerBlock, int numChannels);
     void reset();
-
-    void setParameter(int index, float value); // Pour la matrice
     void setFreeze(bool shouldFreeze);
     
     void process(juce::AudioBuffer<float>& buffer, 
@@ -20,7 +18,7 @@ public:
                  float drift, float crossFB, float selfMod, bool isNeg, 
                  float driveAmt, int driveType, float omegaInt, bool oversample,
                  float wetGain, float tilt,
-                 int lfoShape, float lfoRate, float lfoPhase, float lfoChaos, float lfoPulse, bool lfoSync, float bpm,
+                 int lfoShape, float lfoRate, float lfoPhase, float lfoChaos, float lfoPulse, int lfoSyncIdx, float bpm,
                  int m1D, float m1Dep, int m2D, float m2Dep, int m3D, float m3Dep, int m4D, float m4Dep);
 
 private:
@@ -49,21 +47,20 @@ private:
         juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Lagrange3rd> delayLine { (int) maxDelaySamples };
         juce::dsp::StateVariableTPTFilter<float> inputFilter;
         juce::dsp::StateVariableTPTFilter<float> loopFilter;
+        juce::dsp::StateVariableTPTFilter<float> tiltFilter; // Nouveau
         DCBlocker dcBlocker;
         OnePoleLP modFilter;
     };
 
     std::vector<ChannelState> channels;
     juce::SmoothedValue<float> envFollower;
-    juce::SmoothedValue<float> wetGainSmoothed;
     
     LFO lfo;
     Saturation saturation;
+    juce::AudioBuffer<float> satBuffer; // Buffer pré-alloué
     
     bool isFrozen = false;
-    float lfoPhaseCont = 0.0f;
-    float freezeTiltState = 0.0f;
-
+    
     std::mt19937 jitterGen;
     std::uniform_real_distribution<float> jitterDist { -1.0f, 1.0f };
     float jitterState[2] = {0.0f, 0.0f};
