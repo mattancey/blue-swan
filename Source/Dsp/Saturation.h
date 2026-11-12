@@ -10,7 +10,7 @@ public:
         juce::dsp::ProcessSpec spec { sampleRate, (juce::uint32)blockSize, 1 };
         
         oversampler = std::make_unique<juce::dsp::Oversampling<float>>(numChannels, 1, juce::dsp::Oversampling<float>::filterHalfBandPolyphaseIIR);
-        oversampler->initProcessing(blockSize);
+        oversampler->initProcessing((size_t)blockSize); // Correction warning
         
         hpf.prepare(spec); lpf.prepare(spec);
         hpf.setType(juce::dsp::StateVariableTPTFilterType::highpass);
@@ -18,7 +18,7 @@ public:
         hpf.setCutoffFrequency(80.0f);
         lpf.setCutoffFrequency(12000.0f);
         
-        tuckFilters.resize(numChannels);
+        tuckFilters.resize((size_t)numChannels); // Correction warning
         for (auto& f : tuckFilters) {
             f.prepare(spec);
             f.coefficients = juce::dsp::IIR::Coefficients<float>::makePeakFilter(sampleRate, 150.0f, 1.0f, 1.2f);
