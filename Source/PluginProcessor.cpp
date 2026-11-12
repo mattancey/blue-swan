@@ -33,44 +33,37 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     for (int i = getTotalNumInputChannels(); i < getTotalNumOutputChannels(); ++i)
         buffer.clear(i, 0, buffer.getNumSamples());
 
-    double bpm = 120.0;
-    if (auto* playHead = getPlayHead()) {
-        if (auto pos = playHead->getPosition()) {
-            if (auto bpmOpt = pos->getBpm()) bpm = *bpmOpt;
-        }
+    float basePitch = apvts.getRawParameterValue(Params::pitch)->load();
+    float baseFeedback = apvts.getRawParameterValue(Params::feedback)->load();
+    float baseInputCutoff = apvts.getRawParameterValue(Params::inputCutoff)->load();
+    float baseLoopCutoff = apvts.getRawParameterValue(Params::loopCutoff)->load();
+    float dryWet = apvts.getRawParameterValue(Params::dryWet)->load();
+    float jitter = apvts.getRawParameterValue(Params::jitter)->load();
+    float crossFb = apvts.getRawParameterValue(Params::crossFb)->load();
+    float selfMod = apvts.getRawParameterValue(Params::selfMod)->load();
+    float wetGain = apvts.getRawParameterValue(Params::wetGain)->load(); // Nouveau
+    bool isNegativePolarity = apvts.getRawParameterValue(Params::polarity)->load() > 0.5f;
+    
+    float macroValue = apvts.getRawParameterValue(Params::macro)->load();
+    if (macroValue > 0.001f) {
+        basePitch += macroValue * 24.0f;
+        baseInputCutoff *= (1.0f + macroValue * 3.0f);
+        baseLoopCutoff *= (1.0f + macroValue * 3.0f);
+        baseFeedback = juce::jmin(0.98f, baseFeedback + (macroValue * 0.1f));
     }
 
-    resonator.process(buffer,
-        apvts.getRawParameterValue(Params::pitch)->load(),
-        apvts.getRawParameterValue(Params::feedback)->load(),
-        apvts.getRawParameterValue(Params::inputCutoff)->load(),
-        apvts.getRawParameterValue(Params::loopCutoff)->load(),
-        apvts.getRawParameterValue(Params::resonance)->load(),
-        apvts.getRawParameterValue(Params::dryWet)->load(),
-        apvts.getRawParameterValue(Params::jitter)->load(),
-        apvts.getRawParameterValue(Params::crossFb)->load(),
-        apvts.getRawParameterValue(Params::selfMod)->load(),
-        apvts.getRawParameterValue(Params::polarity)->load() > 0.5f,
-        apvts.getRawParameterValue(Params::driveAmount)->load(),
-        (int)apvts.getRawParameterValue(Params::driveType)->load(),
-        apvts.getRawParameterValue(Params::omegaIntensity)->load(),
-        apvts.getRawParameterValue(Params::omegaOversample)->load() > 0.5f,
-        apvts.getRawParameterValue(Params::wetGain)->load(),
-        apvts.getRawParameterValue(Params::freezeTilt)->load(),
-        (int)apvts.getRawParameterValue(Params::lfoShape)->load(),
-        apvts.getRawParameterValue(Params::lfoRate)->load(),
-        apvts.getRawParameterValue(Params::lfoPhase)->load(),
-        apvts.getRawParameterValue(Params::lfoChaos)->load(),
-        apvts.getRawParameterValue(Params::lfoPulseWidth)->load(),
-        (int)apvts.getRawParameterValue(Params::lfoSync)->load(), // Envoi de l'index (0-15)
-        (float)bpm,
-        (int)apvts.getRawParameterValue(Params::m1Dest)->load(), apvts.getRawParameterValue(Params::m1Depth)->load(),
-        (int)apvts.getRawParameterValue(Params::m2Dest)->load(), apvts.getRawParameterValue(Params::m2Depth)->load(),
-        (int)apvts.getRawParameterValue(Params::m3Dest)->load(), apvts.getRawParameterValue(Params::m3Depth)->load(),
-        (int)apvts.getRawParameterValue(Params::m4Dest)->load(), apvts.getRawParameterValue(Params::m4Depth)->load()
-    );
-    
-    resonator.setFreeze(apvts.getRawParameterValue(Params::freeze)->load() > 0.5f);
+    resonator.setPitchSemitones(basePitch);
+    resonator.setFeedback(baseFeedback);
+    resonator.setInputCutoff(juce::jmin(20000.0f, baseInputCutoff));
+    resonator.setLoopCutoff(juce::jmin(20000.0f, baseLoopCutoff));
+    resonator.setDryWet(dryWet);
+    resonator.setJitter(jitter);
+    resonator.setCrossFeedback(crossFb);
+    resonator.setSelfMod(selfMod);
+    resonator.setPolarity(isNegativePolarity);
+    resonator.setWetGain(wetGain); // Nouveau
+
+    resonator.process(buffer);
 }
 
 juce::AudioProcessorEditor* BlueSwanAudioProcessor::createEditor()
