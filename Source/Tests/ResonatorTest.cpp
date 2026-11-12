@@ -15,7 +15,15 @@ public:
         juce::AudioBuffer<float> buffer(2, 512);
         buffer.clear();
         
-        res.process(buffer);
+        // Appel avec les 32 paramètres (valeurs neutres)
+        res.process(buffer, 
+            0.0f, 0.85f, 8000.0f, 4000.0f, 0.707f, 0.5f, // Core
+            0.0f, 0.0f, 0.0f, false,                     // Modulations
+            1.0f, 0, 0.0f, false,                        // Saturation
+            1.0f, 0.0f,                                  // Wet Gain & Tilt
+            0, 1.0f, 0.0f, 3.6f, 0.5f, 0, 120.0f,        // LFO
+            0, 0.0f, 0, 0.0f, 0, 0.0f, 0, 0.0f           // Matrix
+        );
         
         for (int ch = 0; ch < 2; ++ch)
             for (int i = 0; i < 512; ++i)
