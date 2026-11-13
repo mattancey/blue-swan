@@ -3,13 +3,11 @@
 #include <vector>
 #include <random>
 
-// --- Modèle de Vactrol (inspiré de Parker & D'Angelo) ---
-// Réponse asymétrique : attaque rapide, relâchement lent et non-linéaire.
 struct Vactrol
 {
-    float state = 0.0f;          // État interne (0 = fermé, 1 = ouvert)
-    float attackCoeff = 0.0f;    // Coefficient d'attaque (rapide)
-    float releaseCoeff = 0.0f;   // Coefficient de relâchement (lent)
+    float state = 0.0f;
+    float attackCoeff = 0.0f;
+    float releaseCoeff = 0.0f;
     
     void prepare(double sampleRate, float attackMs = 5.0f, float releaseMs = 250.0f)
     {
@@ -20,66 +18,40 @@ struct Vactrol
     
     float process(float target)
     {
-        // Attaque rapide si la cible est plus grande, relâchement lent sinon
         if (target > state)
             state = target + (state - target) * attackCoeff;
         else
             state = target + (state - target) * releaseCoeff;
         
-        // Courbe non-linéaire (le vactrol n'est pas linéaire en lumière)
-        // On applique une courbe en puissance pour adoucir le relâchement
-        return state * state; // Courbe quadratique simple
+        return state * state;
     }
     
     void reset() { state = 0.0f; }
 };
 
-// --- Module Buchla 292 (LPG) ---
-// Combine un filtre passe-bas 6dB et un VCA, tous deux contrôlés par le vactrol.
 struct BuchlaLPG
 {
-    // Filtre passe-bas 6dB (un pôle) pour la partie VCF
     float filterState = 0.0f;
-    float filterCoeff = 0.0f;
     
-    void prepare(double sampleRate)
-    {
-        reset();
-        // Le coefficient sera recalculé à chaque échantillon
-    }
+    void prepare(double sampleRate) { reset(); }
     
-    float processSample(float input, float vactrolOut, int mode, bool deep)
+    float processSample(float input, float vactrolOut, int mode, bool deep, double sampleRate)
     {
-        // vactrolOut est dans [0, 1] (0 = fermé, 1 = ouvert)
-        
-        // --- Partie VCA ---
         float vcaGain = vactrolOut;
         
-        // --- Partie VCF (filtre passe-bas 6dB) ---
-        // La fréquence de coupure dépend du vactrol et du mode Deep
-        // Plage : 20 Hz (fermé) à 20 kHz (ouvert)
-        float cutoff = 20.0f * std::pow(1000.0f, vactrolOut); // 20 * 1000^vactrolOut
-        if (deep) cutoff *= 0.25f; // Divise par 4 en mode Deep
+        float cutoff = 20.0f * std::pow(1000.0f, vactrolOut);
+        if (deep) cutoff *= 0.25f;
         
-        // Coefficient du filtre à un pôle : a = exp(-2*pi*fc/fs)
-        float a = std::exp(-2.0f * juce::MathConstants<float>::pi * cutoff / 44100.0f); // fs fixé pour simplifier
-        // Note : dans le vrai code, fs est stocké dans la classe Resonator.
-        
-        // Traitement du filtre
+        float a = std::exp(-2.0f * juce::MathConstants<float>::pi * cutoff / (float)sampleRate);
         filterState = input * (1.0f - a) + filterState * a;
         
-        // --- Sortie selon le mode ---
-        if (mode == 0) // VCF only
-            return filterState;
-        else if (mode == 1) // VCA only
-            return input * vcaGain;
-        else // Both (LPG)
-            return filterState * vcaGain;
+        if (mode == 0) return filterState;
+        else if (mode == 1) return input * vcaGain;
+        else return filterState * vcaGain;
     }
     
     void reset() { filterState = 0.0f; }
 };
-// -------------------------------------------------------------
 
 class Resonator
 {
@@ -91,9 +63,9 @@ public:
     void setPitchSemitones(float semitones);
     void setFeedback(float feedback);
     void setInputCutoff(float cutoffHz);
-    void setBuchla292(float amount);   // Nouveau
-    void setLpgMode(int mode);         // Nouveau
-    void setLpgDeep(bool deep);        // Nouveau
+    void setBuchla292(float amount);
+    void setLpgMode(int mode);
+    void setLpgDeep(bool deep);
     void setDryWet(float dryWet);
     void setJitter(float jitterAmount);
     void setCrossFeedback(float crossAmt);
@@ -109,7 +81,7 @@ private:
     double currentSampleRate = 44100.0;
     float currentInputCutoff = 8000.0f;
     float currentBuchla292 = 0.5f;
-    int currentLpgMode = 2; // Both par défaut
+    int currentLpgMode = 2;
     bool currentLpgDeep = false;
 
     struct DCBlocker
@@ -142,8 +114,8 @@ private:
     {
         juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Lagrange3rd> delayLine { (int) maxDelaySamples };
         juce::dsp::StateVariableTPTFilter<float> inputFilter;
-        Vactrol vactrol;        // Nouveau
-        BuchlaLPG lpg;          // Nouveau
+        Vactrol vactrol;
+        BuchlaLPG lpg;
         DCBlocker dcBlocker;
         OnePoleLP modFilter;
     };
@@ -157,7 +129,7 @@ private:
     juce::SmoothedValue<float> selfModSmoothed;
     juce::SmoothedValue<float> wetGainSmoothed;
     juce::SmoothedValue<float> gateSmoothed;
-    juce::SmoothedValue<float> buchla292Smoothed; // Pour lisser le contrôle
+    juce::SmoothedValue<float> buchla292Smoothed;
     
     float polarityMultiplier = 1.0f;
 
