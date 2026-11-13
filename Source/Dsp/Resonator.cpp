@@ -9,6 +9,7 @@ Resonator::Resonator()
     crossFbSmoothed.setCurrentAndTargetValue(0.0f);
     selfModSmoothed.setCurrentAndTargetValue(0.0f);
     wetGainSmoothed.setCurrentAndTargetValue(1.0f);
+    gateSmoothed.setCurrentAndTargetValue(0.0f);
     jitterGen.seed(std::random_device{}());
 }
 
@@ -40,13 +41,10 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
     crossFbSmoothed.reset(sampleRate, 0.05);
     selfModSmoothed.reset(sampleRate, 0.05);
     wetGainSmoothed.reset(sampleRate, 0.02);
-
-    // --- INITIALISATION DU GATE ---
-    // Attaque de 5ms (très rapide, inaudible)
-    attackCoeff = std::exp(-1.0f / (0.005f * (float)sampleRate));
-    // Release linéaire sur 2 secondes exactes
-    releaseStep = 1.0f / (2.0f * (float)sampleRate);
-    gateMultiplier = 0.0f;
+    
+    // Initialisation du Gate : 2 secondes de release
+    gateSmoothed.reset(sampleRate, 2.0);
+    gateSmoothed.setCurrentAndTargetValue(0.0f);
 }
 
 void Resonator::reset()
@@ -61,7 +59,7 @@ void Resonator::reset()
     }
     jitterState[0] = 0.0f;
     jitterState[1] = 0.0f;
-    gateMultiplier = 0.0f;
+    gateSmoothed.setCurrentAndTargetValue(0.0f);
 }
 
 void Resonator::setPitchSemitones(float semitones) { pitchSemitonesSmoothed.setTargetValue(juce::jlimit(-36.0f, 36.0f, semitones)); }
@@ -94,7 +92,6 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
     }
 
     float loopOutputs[2] = { 0.0f, 0.0f };
-    const float threshold = 0.00398107f; // -48 dB
 
     for (int i = 0; i < numSamples; ++i)
     {
@@ -133,14 +130,14 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
             inputAbs = juce::jmax(inputAbs, std::abs(buffer.getReadPointer(ch)[i]));
         }
         
-        if (inputAbs > threshold) {
-            // Attaque ultra rapide (5ms) lissée
-            gateMultiplier = 1.0f - (1.0f - gateMultiplier) * attackCoeff;
+        // Seuil à -48 dB (0.00398107)
+        if (inputAbs > 0.00398107f) {
+            gateSmoothed.setCurrentAndTargetValue(1.0f); // Attaque instantanée
         } else {
-            // Release linéaire sur 2 secondes
-            gateMultiplier -= releaseStep;
-            if (gateMultiplier < 0.0f) gateMultiplier = 0.0f;
+            gateSmoothed.setTargetValue(0.0f);           // Release progressif sur 2s
         }
+        
+        float currentGate = gateSmoothed.getNextValue();
         // ----------------------
 
         for (int ch = 0; ch < numChannels; ++ch)
@@ -172,7 +169,7 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
             state.delayLine.pushSample(0, toWrite);
             
             float wetSignal = loopOutputs[ch] + crossFeedbackSignal;
-            wetSignal *= currentWetGain * gateMultiplier;
+            wetSignal *= currentWetGain * currentGate;
             
             buffer.getWritePointer(ch)[i] = dry * (1.0f - wetMix) + wetSignal * wetMix;
         }
