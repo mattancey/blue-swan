@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(BlueSwan VERSION 0.3.0)
+project(BlueSwan VERSION 0.5.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -24,7 +24,7 @@ juce_add_plugin(BlueSwan
     NEEDS_MIDI_OUTPUT FALSE
     IS_MIDI_EFFECT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
-    COPY_PLUGIN_AFTER_BUILD TRUE
+    COPY_PLUGIN_AFTER_BUILD FALSE # Desactivé pour éviter le crash sur GitHub Actions
     PLUGIN_MANUFACTURER_CODE Pers
     PLUGIN_CODE BlSw
     FORMATS AU VST3 Standalone
