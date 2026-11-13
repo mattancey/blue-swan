@@ -14,6 +14,7 @@ public:
     void setFeedback(float feedback);
     void setInputCutoff(float cutoffHz);
     void setLoopCutoff(float cutoffHz);
+    void setLoopResonance(float q); // Nouveau
     void setDryWet(float dryWet);
     void setJitter(float jitterAmount);
     void setCrossFeedback(float crossAmt);
@@ -29,6 +30,7 @@ private:
     double currentSampleRate = 44100.0;
     float currentInputCutoff = 8000.0f;
     float currentLoopCutoff = 4000.0f;
+    float currentLoopRes = 0.707f; // Nouveau
 
     struct DCBlocker
     {
@@ -60,7 +62,7 @@ private:
     {
         juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Lagrange3rd> delayLine { (int) maxDelaySamples };
         juce::dsp::StateVariableTPTFilter<float> inputFilter;
-        OnePoleLP loopFilter;
+        juce::dsp::StateVariableTPTFilter<float> loopFilter; // Remplacé ici
         DCBlocker dcBlocker;
         OnePoleLP modFilter;
     };
@@ -73,8 +75,6 @@ private:
     juce::SmoothedValue<float> crossFbSmoothed;
     juce::SmoothedValue<float> selfModSmoothed;
     juce::SmoothedValue<float> wetGainSmoothed;
-    
-    // LA NOUVELLE VARIABLE EST ICI
     juce::SmoothedValue<float> gateSmoothed;
     
     float polarityMultiplier = 1.0f;
