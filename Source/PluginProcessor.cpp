@@ -50,7 +50,6 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     if (macroValue > 0.001f) {
         basePitch += macroValue * 24.0f;
         baseInputCutoff *= (1.0f + macroValue * 3.0f);
-        // Le macro peut aussi influencer l'ouverture du Buchla 292
         buchla292 = juce::jmin(1.0f, buchla292 + (macroValue * 0.3f));
         baseFeedback = juce::jmin(0.98f, baseFeedback + (macroValue * 0.1f));
     }
