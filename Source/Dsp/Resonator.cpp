@@ -100,7 +100,7 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
     for (int i = 0; i < numSamples; ++i)
     {
         const float pitchSt = pitchSemitonesSmoothed.getNextValue();
-        const float fb = isFrozen ? 0.99f : feedbackSmoothed.getNextValue() * polarityMultiplier; // Freeze force le feedback
+        const float fb = isFrozen ? 0.98f : feedbackSmoothed.getNextValue() * polarityMultiplier;
         const float wetMix = dryWetSmoothed.getNextValue();
         const float drift = jitterSmoothed.getNextValue();
         const float crossFB = crossFbSmoothed.getNextValue();
@@ -155,8 +155,12 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
         for (int ch = 0; ch < numChannels; ++ch)
         {
             auto& state = channels[(size_t) ch];
-            // Si Freeze est activé, on coupe l'entrée Dry (on injecte 0)
-            const float dry = isFrozen ? 0.0f : buffer.getReadPointer(ch)[i];
+            
+            // Séparation du signal pour le mix Dry et l'injection dans la boucle
+            const float outputDry = buffer.getReadPointer(ch)[i];
+            
+            // INJECTION FANTÔME : Si freeze, on atténue l'entrée à -30dB (environ 0.0316)
+            const float inputToLoop = isFrozen ? outputDry * 0.0316f : outputDry;
             
             float crossFeedbackSignal = 0.0f;
             if (numChannels == 2) {
@@ -164,7 +168,7 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
                 crossFeedbackSignal = loopOutputs[otherCh] * crossFB;
             }
 
-            const float inputFiltered = state.inputFilter.processSample(0, dry);
+            const float inputFiltered = state.inputFilter.processSample(0, inputToLoop);
             float toWrite = inputFiltered + (loopOutputs[ch] * fb) + crossFeedbackSignal;
             toWrite = std::tanh(toWrite);
 
@@ -174,21 +178,20 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
             
             // --- FILTRE TILT (Freeze) ---
             if (currentTilt > 0.001f) {
-                // Passe-Haut
-                float cutoff = 20.0f * std::pow(100.0f, currentTilt); // 20Hz à 2kHz
+                float cutoff = 20.0f * std::pow(100.0f, currentTilt);
                 state.tiltFilter.setCutoff(cutoff, (float)currentSampleRate);
                 float lp = state.tiltFilter.process(wetSignal);
-                wetSignal = wetSignal - lp; // HPF = Signal - LPF
+                wetSignal = wetSignal - lp; // HPF
             } else if (currentTilt < -0.001f) {
-                // Passe-Bas
-                float cutoff = 20000.0f * std::pow(0.01f, -currentTilt); // 20kHz à 200Hz
+                float cutoff = 20000.0f * std::pow(0.01f, -currentTilt);
                 state.tiltFilter.setCutoff(cutoff, (float)currentSampleRate);
                 wetSignal = state.tiltFilter.process(wetSignal); // LPF
             }
             
             wetSignal *= currentWetGain * currentGate;
             
-            buffer.getWritePointer(ch)[i] = dry * (1.0f - wetMix) + wetSignal * wetMix;
+            // Le mix utilise le outputDry non atténué
+            buffer.getWritePointer(ch)[i] = outputDry * (1.0f - wetMix) + wetSignal * wetMix;
         }
     }
 }
