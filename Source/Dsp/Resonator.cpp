@@ -100,10 +100,12 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
     for (int i = 0; i < numSamples; ++i)
     {
         const float pitchSt = pitchSemitonesSmoothed.getNextValue();
-        const float fb = isFrozen ? 0.98f : feedbackSmoothed.getNextValue() * polarityMultiplier;
+        // Feedback : 0.95 en Freeze pour une nappe douce, sinon valeur utilisateur
+        const float fb = isFrozen ? 0.95f : feedbackSmoothed.getNextValue() * polarityMultiplier;
         const float wetMix = dryWetSmoothed.getNextValue();
         const float drift = jitterSmoothed.getNextValue();
-        const float crossFB = crossFbSmoothed.getNextValue();
+        // Cross-FB réduit de moitié en Freeze pour stabiliser la nappe
+        const float crossFB = isFrozen ? crossFbSmoothed.getNextValue() * 0.5f : crossFbSmoothed.getNextValue();
         const float selfModAmt = selfModSmoothed.getNextValue();
         const float currentWetGain = wetGainSmoothed.getNextValue();
         const float currentTilt = freezeTiltSmoothed.getNextValue();
@@ -129,17 +131,21 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
             delaySamples = juce::jlimit(4.0f, maxDelaySamples - 8.0f, delaySamples);
         }
 
-        float inputAbs = 0.0f;
-        for (int ch = 0; ch < numChannels; ++ch) {
-            inputAbs = juce::jmax(inputAbs, std::abs(buffer.getReadPointer(ch)[i]));
+        // Gate : désactivé si Freeze est actif
+        float currentGate = 1.0f;
+        if (!isFrozen) {
+            float inputAbs = 0.0f;
+            for (int ch = 0; ch < numChannels; ++ch) {
+                inputAbs = juce::jmax(inputAbs, std::abs(buffer.getReadPointer(ch)[i]));
+            }
+            
+            if (inputAbs > 0.00398107f) {
+                gateSmoothed.setCurrentAndTargetValue(1.0f);
+            } else {
+                gateSmoothed.setTargetValue(0.0f);
+            }
+            currentGate = gateSmoothed.getNextValue();
         }
-        
-        if (inputAbs > 0.00398107f) {
-            gateSmoothed.setCurrentAndTargetValue(1.0f);
-        } else {
-            gateSmoothed.setTargetValue(0.0f);
-        }
-        float currentGate = gateSmoothed.getNextValue();
 
         for (int ch = 0; ch < numChannels; ++ch)
         {
@@ -156,12 +162,19 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
         {
             auto& state = channels[(size_t) ch];
             
-            // Séparation du signal pour le mix Dry et l'injection dans la boucle
             const float outputDry = buffer.getReadPointer(ch)[i];
             
-            // INJECTION FANTÔME : Si freeze, on atténue l'entrée à -30dB (environ 0.0316)
-            const float inputToLoop = isFrozen ? outputDry * 0.0316f : outputDry;
+            // INJECTION FANTÔME : -30dB (0.0316) si Freeze
+            float inputToLoop = isFrozen ? outputDry * 0.0316f : outputDry;
             
+            // Filtrage de la ghost injection pour éviter les aigus agressifs
+            if (isFrozen) {
+                float a = std::exp(-2.0f * juce::MathConstants<float>::pi * 2000.0f / (float)currentSampleRate);
+                static float ghostState = 0.0f;
+                ghostState = inputToLoop * (1.0f - a) + ghostState * a;
+                inputToLoop = ghostState;
+            }
+
             float crossFeedbackSignal = 0.0f;
             if (numChannels == 2) {
                 int otherCh = 1 - ch;
@@ -190,7 +203,6 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
             
             wetSignal *= currentWetGain * currentGate;
             
-            // Le mix utilise le outputDry non atténué
             buffer.getWritePointer(ch)[i] = outputDry * (1.0f - wetMix) + wetSignal * wetMix;
         }
     }
