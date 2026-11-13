@@ -6,9 +6,9 @@ namespace Params
     inline constexpr auto pitch = "pitch";
     inline constexpr auto feedback = "feedback";
     inline constexpr auto inputCutoff = "inputCutoff";
-    inline constexpr auto buchla292 = "buchla292"; // Remplace loopCutoff + loopRes
-    inline constexpr auto lpgMode = "lpgMode";     // Switch VCF/VCA/Both
-    inline constexpr auto lpgDeep = "lpgDeep";     // Switch Deep
+    inline constexpr auto buchla292 = "buchla292";
+    inline constexpr auto lpgMode = "lpgMode";
+    inline constexpr auto lpgDeep = "lpgDeep";
     inline constexpr auto dryWet = "dryWet";
     inline constexpr auto macro = "macro";
     inline constexpr auto jitter = "jitter";
@@ -25,11 +25,8 @@ namespace Params
         layout.add(std::make_unique<juce::AudioParameterFloat>(feedback, "Feedback", juce::NormalisableRange<float>(0.0f, 0.98f, 0.001f), 0.85f));
         layout.add(std::make_unique<juce::AudioParameterFloat>(inputCutoff, "Input Cutoff", juce::NormalisableRange<float>(100.0f, 20000.0f, 1.0f, 0.3f), 8000.0f));
         
-        // Buchla 292 : contrôle l'ouverture du vactrol (0 = fermé, 1 = ouvert)
         layout.add(std::make_unique<juce::AudioParameterFloat>(buchla292, "Buchla 292", juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.5f));
-        // Mode : 0 = VCF, 1 = VCA, 2 = Both (comportement LPG classique)
         layout.add(std::make_unique<juce::AudioParameterChoice>(lpgMode, "LPG Mode", juce::StringArray{"VCF", "VCA", "Both"}, 2));
-        // Deep : divise la fréquence de coupure par 4 pour les sons graves
         layout.add(std::make_unique<juce::AudioParameterBool>(lpgDeep, "Deep", false));
         
         layout.add(std::make_unique<juce::AudioParameterFloat>(dryWet, "Dry/Wet", juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.5f));
