@@ -26,9 +26,7 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     eksEnableButton.setColour(juce::ToggleButton::textColourId, juce::Colours::cyan);
     addAndMakeVisible(eksEnableButton);
 
-    // Utilisation de la notation Unicode pour H bêta (Hβ)
     setupRotarySlider(pluckSlider, pluckLabel, juce::String::fromUTF8("H\u03B2"), *this);
-    
     setupRotarySlider(inharmSlider, inharmLabel, "Inharm", *this);
     setupRotarySlider(inharmJitSlider, inharmJitLabel, "Jit", *this);
     
@@ -62,7 +60,7 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     wetGainAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::wetGain, wetGainSlider);
 
     setSize(850, 480);
-    startTimerHz(10); // Lance le timer pour mettre à jour l'interface
+    startTimerHz(10);
 }
 
 BlueSwanAudioProcessorEditor::~BlueSwanAudioProcessorEditor() 
@@ -72,7 +70,6 @@ BlueSwanAudioProcessorEditor::~BlueSwanAudioProcessorEditor()
 
 void BlueSwanAudioProcessorEditor::timerCallback()
 {
-    // Griser les boutons EKS quand le switch est désactivé
     bool eksActive = processorRef.apvts.getRawParameterValue(Params::eksEnable)->load() > 0.5f;
     
     auto setAlpha = [](juce::Component& c, float a) {
@@ -96,16 +93,13 @@ void BlueSwanAudioProcessorEditor::paint(juce::Graphics& g)
     g.setFont(24.0f);
     g.drawFittedText("BLUE SWAN", getLocalBounds().removeFromTop(40), juce::Justification::centred, 1);
     
-    // Lignes de séparation pour délimiter les modules
     g.setColour(juce::Colours::darkgrey);
     auto area = getLocalBounds().reduced(10);
     area.removeFromTop(40);
     auto leftArea = area.removeFromLeft(150); 
     
-    // Ligne verticale globale (sépare le panneau gauche)
     g.drawVerticalLine((int)leftArea.getRight() + 10, (float)area.getY(), (float)area.getBottom());
 
-    // Lignes verticales de séparation des modules
     float colWidth = area.getWidth() / 4.0f;
     g.drawVerticalLine((int)(area.getX() + colWidth), (float)area.getY(), (float)area.getBottom());
     g.drawVerticalLine((int)(area.getX() + colWidth * 2), (float)area.getY(), (float)area.getBottom());
@@ -147,13 +141,16 @@ void BlueSwanAudioProcessorEditor::resized()
     
     // COLONNE 2 : EKS (Switch, Hβ, Inharm+Jit)
     auto eksCell = juce::Rectangle<int>(area.getX() + colWidth, area.getY(), colWidth, rowHeight).reduced(10);
-    eksEnableButton.setBounds(eksCell.removeFromTop(30)); // Le switch en haut
+    eksEnableButton.setBounds(eksCell.removeFromTop(30));
     
-    place(pluckSlider, pluckLabel, 1, 1); // Hβ en dessous
+    place(pluckSlider, pluckLabel, 1, 1);
     
     // Inharm et Jit côte à côte
     auto inharmRow = juce::Rectangle<int>(area.getX() + colWidth, area.getY() + 2 * rowHeight, colWidth, rowHeight).reduced(10);
-    auto jitArea = inharmRow.removeFromRight(inharmRow.getWidth() * 0.35f); // Jit prend 35% de la largeur
+    
+    // LA CORRECTION EST ICI : static_cast<int>
+    auto jitArea = inharmRow.removeFromRight(static_cast<int>(inharmRow.getWidth() * 0.35f));
+    
     inharmJitLabel.setBounds(jitArea.removeFromTop(20));
     inharmJitSlider.setBounds(jitArea);
     
