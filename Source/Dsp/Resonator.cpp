@@ -9,7 +9,7 @@ Resonator::Resonator()
     crossFbSmoothed.setCurrentAndTargetValue(0.0f);
     selfModSmoothed.setCurrentAndTargetValue(0.0f);
     wetGainSmoothed.setCurrentAndTargetValue(1.0f);
-    gateSmoothed.setCurrentAndTargetValue(0.0f);
+    gateSmoothed.setCurrentAndTargetValue(0.0f); // Init Gate
     jitterGen.seed(std::random_device{}());
 }
 
@@ -42,7 +42,7 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
     selfModSmoothed.reset(sampleRate, 0.05);
     wetGainSmoothed.reset(sampleRate, 0.02);
     
-    // Initialisation du Gate : 2 secondes de release
+    // Initialisation du Gate : release sur 2 secondes
     gateSmoothed.reset(sampleRate, 2.0);
     gateSmoothed.setCurrentAndTargetValue(0.0f);
 }
