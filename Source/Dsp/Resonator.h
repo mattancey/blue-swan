@@ -74,12 +74,9 @@ private:
     juce::SmoothedValue<float> selfModSmoothed;
     juce::SmoothedValue<float> wetGainSmoothed;
     
+    juce::SmoothedValue<float> gateSmoothed; // Remplaçace le gate manuel
+    
     float polarityMultiplier = 1.0f;
-
-    // --- NOUVELLES VARIABLES POUR LE GATE ---
-    float gateMultiplier = 0.0f;
-    float attackCoeff = 0.0f;
-    float releaseStep = 0.0f;
 
     std::mt19937 jitterGen;
     std::uniform_real_distribution<float> jitterDist { -1.0f, 1.0f };
