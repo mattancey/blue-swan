@@ -36,8 +36,9 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     float basePitch = apvts.getRawParameterValue(Params::pitch)->load();
     float baseFeedback = apvts.getRawParameterValue(Params::feedback)->load();
     float baseInputCutoff = apvts.getRawParameterValue(Params::inputCutoff)->load();
-    float baseLoopCutoff = apvts.getRawParameterValue(Params::loopCutoff)->load();
-    float loopRes = apvts.getRawParameterValue(Params::loopRes)->load();
+    float buchla292 = apvts.getRawParameterValue(Params::buchla292)->load();
+    int lpgMode = (int)apvts.getRawParameterValue(Params::lpgMode)->load();
+    bool lpgDeep = apvts.getRawParameterValue(Params::lpgDeep)->load() > 0.5f;
     float dryWet = apvts.getRawParameterValue(Params::dryWet)->load();
     float jitter = apvts.getRawParameterValue(Params::jitter)->load();
     float crossFb = apvts.getRawParameterValue(Params::crossFb)->load();
@@ -49,15 +50,17 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     if (macroValue > 0.001f) {
         basePitch += macroValue * 24.0f;
         baseInputCutoff *= (1.0f + macroValue * 3.0f);
-        baseLoopCutoff *= (1.0f + macroValue * 3.0f);
+        // Le macro peut aussi influencer l'ouverture du Buchla 292
+        buchla292 = juce::jmin(1.0f, buchla292 + (macroValue * 0.3f));
         baseFeedback = juce::jmin(0.98f, baseFeedback + (macroValue * 0.1f));
     }
 
     resonator.setPitchSemitones(basePitch);
     resonator.setFeedback(baseFeedback);
     resonator.setInputCutoff(juce::jmin(20000.0f, baseInputCutoff));
-    resonator.setLoopCutoff(juce::jmin(20000.0f, baseLoopCutoff));
-    resonator.setLoopResonance(loopRes);
+    resonator.setBuchla292(buchla292);
+    resonator.setLpgMode(lpgMode);
+    resonator.setLpgDeep(lpgDeep);
     resonator.setDryWet(dryWet);
     resonator.setJitter(jitter);
     resonator.setCrossFeedback(crossFb);
