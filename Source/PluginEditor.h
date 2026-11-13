@@ -1,5 +1,4 @@
 #pragma once
-
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "PluginProcessor.h"
 
@@ -8,7 +7,6 @@ class BlueSwanAudioProcessorEditor : public juce::AudioProcessorEditor
 public:
     explicit BlueSwanAudioProcessorEditor(BlueSwanAudioProcessor&);
     ~BlueSwanAudioProcessorEditor() override;
-
     void paint(juce::Graphics&) override;
     void resized() override;
 
