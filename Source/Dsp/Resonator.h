@@ -3,6 +3,56 @@
 #include <vector>
 #include <random>
 
+// --- Structure du Filtre SEM (SVF ZDF avec saturation tanh) ---
+struct SEMFilter
+{
+    float ic1eq = 0.0f;
+    float ic2eq = 0.0f;
+    float g = 0.0f;
+    float k = 2.0f;
+
+    void prepare(double sampleRate, float cutoffHz, float resonance)
+    {
+        reset();
+        setParams(sampleRate, cutoffHz, resonance);
+    }
+
+    void setParams(double sampleRate, float cutoffHz, float resonance)
+    {
+        // Pré-warping de la fréquence de coupure
+        float wd = juce::MathConstants<float>::twoPi * cutoffHz;
+        float T = 1.0f / (float)sampleRate;
+        float wa = (2.0f / T) * std::tan(wd * T * 0.5f);
+        g = wa * T * 0.5f;
+        
+        // Mapping de la résonance (0 à 1) vers l'amortissement k
+        // k = 2 - 2*resonance donne une résonance douce qui n'explose pas
+        k = 2.0f - 2.0f * juce::jlimit(0.0f, 0.98f, resonance);
+    }
+
+    float processSample(float input)
+    {
+        // Topologie SVF ZDF (Zavalishin / Simper)
+        float t0 = input - ic2eq;
+        float t1 = g * t0 + ic1eq;
+        float t2 = g * t1 + ic2eq;
+        
+        // Saturation non-linéaire sur les états (le secret du SEM)
+        ic1eq = 2.0f * std::tanh(t1) - ic1eq;
+        ic2eq = 2.0f * std::tanh(t2) - ic2eq;
+        
+        // Sortie Lowpass
+        return ic2eq;
+    }
+
+    void reset()
+    {
+        ic1eq = 0.0f;
+        ic2eq = 0.0f;
+    }
+};
+// -------------------------------------------------------------
+
 class Resonator
 {
 public:
@@ -30,7 +80,7 @@ private:
     double currentSampleRate = 44100.0;
     float currentInputCutoff = 8000.0f;
     float currentLoopCutoff = 4000.0f;
-    float currentLoopRes = 0.707f;
+    float currentLoopRes = 0.0f;
 
     struct DCBlocker
     {
@@ -44,7 +94,6 @@ private:
         void reset() { x1 = 0.0f; y1 = 0.0f; }
     };
 
-    // On garde le OnePole uniquement pour le modFilter (self-mod)
     struct OnePoleLP
     {
         float a = 0.0f, z = 0.0f;
@@ -62,8 +111,8 @@ private:
     struct ChannelState
     {
         juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Lagrange3rd> delayLine { (int) maxDelaySamples };
-        juce::dsp::StateVariableTPTFilter<float> inputFilter;
-        juce::dsp::StateVariableTPTFilter<float> loopFilter; // StateVariable avec Q
+        juce::dsp::StateVariableTPTFilter<float> inputFilter; // Garde le filtre d'entrée JUCE (pas dans la boucle)
+        SEMFilter loopFilter; // Notre filtre SEM custom
         DCBlocker dcBlocker;
         OnePoleLP modFilter;
     };
