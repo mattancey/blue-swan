@@ -31,9 +31,8 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
         ch.inputFilter.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
         ch.inputFilter.reset();
         
-        ch.loopFilter.prepare(spec);
-        ch.loopFilter.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
-        ch.loopFilter.reset();
+        // Initialisation du filtre SEM
+        ch.loopFilter.prepare(sampleRate, currentLoopCutoff, currentLoopRes);
         
         ch.dcBlocker.reset();
         ch.modFilter.setCutoff(20.0f, (float) sampleRate);
@@ -70,7 +69,7 @@ void Resonator::setPitchSemitones(float semitones) { pitchSemitonesSmoothed.setT
 void Resonator::setFeedback(float feedback) { feedbackSmoothed.setTargetValue(juce::jlimit(0.0f, 0.98f, feedback)); }
 void Resonator::setInputCutoff(float cutoffHz) { currentInputCutoff = juce::jlimit(20.0f, 20000.0f, cutoffHz); }
 void Resonator::setLoopCutoff(float cutoffHz) { currentLoopCutoff = juce::jlimit(20.0f, 20000.0f, cutoffHz); }
-void Resonator::setLoopResonance(float q) { currentLoopRes = juce::jlimit(0.1f, 10.0f, q); } // Nouveau
+void Resonator::setLoopResonance(float q) { currentLoopRes = juce::jlimit(0.0f, 1.0f, q); }
 void Resonator::setDryWet(float dryWet) { dryWetSmoothed.setTargetValue(juce::jlimit(0.0f, 1.0f, dryWet)); }
 void Resonator::setJitter(float jitterAmount) { jitterSmoothed.setTargetValue(juce::jlimit(0.0f, 1.0f, jitterAmount)); }
 void Resonator::setCrossFeedback(float crossAmt) { crossFbSmoothed.setTargetValue(juce::jlimit(0.0f, 0.98f, crossAmt)); }
@@ -90,13 +89,11 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
     const int numChannels = juce::jmin((int) channels.size(), buffer.getNumChannels());
     const int numSamples = buffer.getNumSamples();
 
+    // Mise à jour des paramètres du filtre SEM
     for (int ch = 0; ch < numChannels; ++ch)
     {
         channels[(size_t) ch].inputFilter.setCutoffFrequency(currentInputCutoff);
-        
-        // Mise à jour du filtre de boucle (Cutoff + Q)
-        channels[(size_t) ch].loopFilter.setCutoffFrequency(currentLoopCutoff);
-        channels[(size_t) ch].loopFilter.setResonance(currentLoopRes);
+        channels[(size_t) ch].loopFilter.setParams(currentSampleRate, currentLoopCutoff, currentLoopRes);
     }
 
     float loopOutputs[2] = { 0.0f, 0.0f };
@@ -150,8 +147,8 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
             state.delayLine.setDelay(delaySamples);
             const float delayed = state.delayLine.popSample(0);
 
-            // Utilisation du processSample du StateVariableFilter (qui gère le Q)
-            float loopFiltered = state.loopFilter.processSample(0, delayed);
+            // Utilisation de notre filtre SEM custom
+            float loopFiltered = state.loopFilter.processSample(delayed);
             loopFiltered = state.dcBlocker.process(loopFiltered);
             loopOutputs[ch] = loopFiltered;
         }
