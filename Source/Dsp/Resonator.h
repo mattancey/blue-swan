@@ -13,8 +13,10 @@ public:
 
     void setPitchSemitones(float semitones);
     void setDecay(float decay);
+    void setEksEnable(bool enable);
     void setPluck(float pluck);
     void setInharm(float inharm);
+    void setInharmJitter(float jitter);
     void setInputCutoff(float cutoffHz);
     void setLoopCutoff(float cutoffHz);
     void setDryWet(float dryWet);
@@ -80,14 +82,20 @@ private:
         OnePoleLP loopFilter;
         DCBlocker dcBlocker;
         OnePoleLP modFilter;
-        Allpass inharmAllpass[16]; // Cascade de 16 pour un effet massif
+        Allpass inharmAllpass[16];
     };
 
     std::vector<ChannelState> channels;
+    
     juce::SmoothedValue<float> pitchSemitonesSmoothed;
     juce::SmoothedValue<float> decaySmoothed;
     juce::SmoothedValue<float> pluckSmoothed;
     juce::SmoothedValue<float> inharmSmoothed;
+    
+    // CES DEUX VARIABLES ÉTAIENT MANQUANTES DANS TON FICHIER :
+    juce::SmoothedValue<float> inharmJitSmoothed; 
+    bool isEksEnabled = true;
+    
     juce::SmoothedValue<float> dryWetSmoothed;
     juce::SmoothedValue<float> jitterSmoothed;
     juce::SmoothedValue<float> crossFbSmoothed;
