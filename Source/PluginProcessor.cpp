@@ -34,7 +34,9 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
         buffer.clear(i, 0, buffer.getNumSamples());
 
     float basePitch = apvts.getRawParameterValue(Params::pitch)->load();
-    float baseFeedback = apvts.getRawParameterValue(Params::feedback)->load();
+    float decay = apvts.getRawParameterValue(Params::feedback)->load();
+    float pluck = apvts.getRawParameterValue(Params::pluck)->load();
+    float inharm = apvts.getRawParameterValue(Params::inharm)->load();
     float baseInputCutoff = apvts.getRawParameterValue(Params::inputCutoff)->load();
     float baseLoopCutoff = apvts.getRawParameterValue(Params::loopCutoff)->load();
     float dryWet = apvts.getRawParameterValue(Params::dryWet)->load();
@@ -43,18 +45,19 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     float selfMod = apvts.getRawParameterValue(Params::selfMod)->load();
     float wetGain = apvts.getRawParameterValue(Params::wetGain)->load();
     bool isNegativePolarity = apvts.getRawParameterValue(Params::polarity)->load() > 0.5f;
-    float freezeTilt = apvts.getRawParameterValue(Params::freezeTilt)->load();
     
     float macroValue = apvts.getRawParameterValue(Params::macro)->load();
     if (macroValue > 0.001f) {
         basePitch += macroValue * 24.0f;
         baseInputCutoff *= (1.0f + macroValue * 3.0f);
         baseLoopCutoff *= (1.0f + macroValue * 3.0f);
-        baseFeedback = juce::jmin(0.98f, baseFeedback + (macroValue * 0.1f));
+        decay = juce::jmin(0.99f, decay + (macroValue * 0.1f));
     }
 
     resonator.setPitchSemitones(basePitch);
-    resonator.setFeedback(baseFeedback);
+    resonator.setDecay(decay);
+    resonator.setPluck(pluck);
+    resonator.setInharm(inharm);
     resonator.setInputCutoff(juce::jmin(20000.0f, baseInputCutoff));
     resonator.setLoopCutoff(juce::jmin(20000.0f, baseLoopCutoff));
     resonator.setDryWet(dryWet);
@@ -63,9 +66,6 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     resonator.setSelfMod(selfMod);
     resonator.setPolarity(isNegativePolarity);
     resonator.setWetGain(wetGain);
-    
-    resonator.setFreeze(apvts.getRawParameterValue(Params::freeze)->load() > 0.5f);
-    resonator.setFreezeTilt(freezeTilt);
 
     resonator.process(buffer);
 }
