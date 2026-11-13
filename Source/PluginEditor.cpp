@@ -148,7 +148,6 @@ void BlueSwanAudioProcessorEditor::resized()
     // Inharm et Jit côte à côte
     auto inharmRow = juce::Rectangle<int>(area.getX() + colWidth, area.getY() + 2 * rowHeight, colWidth, rowHeight).reduced(10);
     
-    // LA CORRECTION EST ICI : static_cast<int>
     auto jitArea = inharmRow.removeFromRight(static_cast<int>(inharmRow.getWidth() * 0.35f));
     
     inharmJitLabel.setBounds(jitArea.removeFromTop(20));
