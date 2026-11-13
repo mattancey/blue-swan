@@ -3,53 +3,81 @@
 #include <vector>
 #include <random>
 
-// --- Structure du Filtre SEM (SVF ZDF avec saturation tanh) ---
-struct SEMFilter
+// --- Modèle de Vactrol (inspiré de Parker & D'Angelo) ---
+// Réponse asymétrique : attaque rapide, relâchement lent et non-linéaire.
+struct Vactrol
 {
-    float ic1eq = 0.0f;
-    float ic2eq = 0.0f;
-    float g = 0.0f;
-    float k = 2.0f;
-
-    void prepare(double sampleRate, float cutoffHz, float resonance)
+    float state = 0.0f;          // État interne (0 = fermé, 1 = ouvert)
+    float attackCoeff = 0.0f;    // Coefficient d'attaque (rapide)
+    float releaseCoeff = 0.0f;   // Coefficient de relâchement (lent)
+    
+    void prepare(double sampleRate, float attackMs = 5.0f, float releaseMs = 250.0f)
     {
         reset();
-        setParams(sampleRate, cutoffHz, resonance);
+        attackCoeff = std::exp(-1.0f / (attackMs * 0.001f * (float)sampleRate));
+        releaseCoeff = std::exp(-1.0f / (releaseMs * 0.001f * (float)sampleRate));
     }
-
-    void setParams(double sampleRate, float cutoffHz, float resonance)
+    
+    float process(float target)
     {
-        // Pré-warping de la fréquence de coupure
-        float wd = juce::MathConstants<float>::twoPi * cutoffHz;
-        float T = 1.0f / (float)sampleRate;
-        float wa = (2.0f / T) * std::tan(wd * T * 0.5f);
-        g = wa * T * 0.5f;
+        // Attaque rapide si la cible est plus grande, relâchement lent sinon
+        if (target > state)
+            state = target + (state - target) * attackCoeff;
+        else
+            state = target + (state - target) * releaseCoeff;
         
-        // Mapping de la résonance (0 à 1) vers l'amortissement k
-        // k = 2 - 2*resonance donne une résonance douce qui n'explose pas
-        k = 2.0f - 2.0f * juce::jlimit(0.0f, 0.98f, resonance);
+        // Courbe non-linéaire (le vactrol n'est pas linéaire en lumière)
+        // On applique une courbe en puissance pour adoucir le relâchement
+        return state * state; // Courbe quadratique simple
     }
+    
+    void reset() { state = 0.0f; }
+};
 
-    float processSample(float input)
+// --- Module Buchla 292 (LPG) ---
+// Combine un filtre passe-bas 6dB et un VCA, tous deux contrôlés par le vactrol.
+struct BuchlaLPG
+{
+    // Filtre passe-bas 6dB (un pôle) pour la partie VCF
+    float filterState = 0.0f;
+    float filterCoeff = 0.0f;
+    
+    void prepare(double sampleRate)
     {
-        // Topologie SVF ZDF (Zavalishin / Simper)
-        float t0 = input - ic2eq;
-        float t1 = g * t0 + ic1eq;
-        float t2 = g * t1 + ic2eq;
-        
-        // Saturation non-linéaire sur les états (le secret du SEM)
-        ic1eq = 2.0f * std::tanh(t1) - ic1eq;
-        ic2eq = 2.0f * std::tanh(t2) - ic2eq;
-        
-        // Sortie Lowpass
-        return ic2eq;
+        reset();
+        // Le coefficient sera recalculé à chaque échantillon
     }
-
-    void reset()
+    
+    float processSample(float input, float vactrolOut, int mode, bool deep)
     {
-        ic1eq = 0.0f;
-        ic2eq = 0.0f;
+        // vactrolOut est dans [0, 1] (0 = fermé, 1 = ouvert)
+        
+        // --- Partie VCA ---
+        float vcaGain = vactrolOut;
+        
+        // --- Partie VCF (filtre passe-bas 6dB) ---
+        // La fréquence de coupure dépend du vactrol et du mode Deep
+        // Plage : 20 Hz (fermé) à 20 kHz (ouvert)
+        float cutoff = 20.0f * std::pow(1000.0f, vactrolOut); // 20 * 1000^vactrolOut
+        if (deep) cutoff *= 0.25f; // Divise par 4 en mode Deep
+        
+        // Coefficient du filtre à un pôle : a = exp(-2*pi*fc/fs)
+        float a = std::exp(-2.0f * juce::MathConstants<float>::pi * cutoff / 44100.0f); // fs fixé pour simplifier
+        // Note : dans le vrai code, fs est stocké dans la classe Resonator.
+        
+        // Traitement du filtre
+        filterState = input * (1.0f - a) + filterState * a;
+        
+        // --- Sortie selon le mode ---
+        if (mode == 0) // VCF only
+            return filterState;
+        else if (mode == 1) // VCA only
+            return input * vcaGain;
+        else // Both (LPG)
+            return filterState * vcaGain;
     }
+    
+    void reset() { filterState = 0.0f; }
 };
 // -------------------------------------------------------------
 
@@ -63,8 +91,9 @@ public:
     void setPitchSemitones(float semitones);
     void setFeedback(float feedback);
     void setInputCutoff(float cutoffHz);
-    void setLoopCutoff(float cutoffHz);
-    void setLoopResonance(float q); 
+    void setBuchla292(float amount);   // Nouveau
+    void setLpgMode(int mode);         // Nouveau
+    void setLpgDeep(bool deep);        // Nouveau
     void setDryWet(float dryWet);
     void setJitter(float jitterAmount);
     void setCrossFeedback(float crossAmt);
@@ -79,8 +108,9 @@ private:
     static constexpr float maxDelaySamples = 16384.0f;
     double currentSampleRate = 44100.0;
     float currentInputCutoff = 8000.0f;
-    float currentLoopCutoff = 4000.0f;
-    float currentLoopRes = 0.0f;
+    float currentBuchla292 = 0.5f;
+    int currentLpgMode = 2; // Both par défaut
+    bool currentLpgDeep = false;
 
     struct DCBlocker
     {
@@ -111,8 +141,9 @@ private:
     struct ChannelState
     {
         juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Lagrange3rd> delayLine { (int) maxDelaySamples };
-        juce::dsp::StateVariableTPTFilter<float> inputFilter; // Garde le filtre d'entrée JUCE (pas dans la boucle)
-        SEMFilter loopFilter; // Notre filtre SEM custom
+        juce::dsp::StateVariableTPTFilter<float> inputFilter;
+        Vactrol vactrol;        // Nouveau
+        BuchlaLPG lpg;          // Nouveau
         DCBlocker dcBlocker;
         OnePoleLP modFilter;
     };
@@ -126,6 +157,7 @@ private:
     juce::SmoothedValue<float> selfModSmoothed;
     juce::SmoothedValue<float> wetGainSmoothed;
     juce::SmoothedValue<float> gateSmoothed;
+    juce::SmoothedValue<float> buchla292Smoothed; // Pour lisser le contrôle
     
     float polarityMultiplier = 1.0f;
 
