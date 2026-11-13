@@ -2,57 +2,7 @@
 #include <juce_dsp/juce_dsp.h>
 #include <vector>
 #include <random>
-#include <cmath> // Ajouté pour std::exp et std::pow
-
-struct Vactrol
-{
-    float state = 0.0f;
-    float attackCoeff = 0.0f;
-    float releaseCoeff = 0.0f;
-    
-    void prepare(double sampleRate, float attackMs = 5.0f, float releaseMs = 250.0f)
-    {
-        reset();
-        attackCoeff = std::exp(-1.0f / (attackMs * 0.001f * (float)sampleRate));
-        releaseCoeff = std::exp(-1.0f / (releaseMs * 0.001f * (float)sampleRate));
-    }
-    
-    float process(float target)
-    {
-        if (target > state)
-            state = target + (state - target) * attackCoeff;
-        else
-            state = target + (state - target) * releaseCoeff;
-        
-        return state * state;
-    }
-    
-    void reset() { state = 0.0f; }
-};
-
-struct BuchlaLPG
-{
-    float filterState = 0.0f;
-    
-    void prepare(double sampleRate) { reset(); }
-    
-    float processSample(float input, float vactrolOut, int mode, bool deep, double sampleRate)
-    {
-        float vcaGain = vactrolOut;
-        
-        float cutoff = 20.0f * std::pow(1000.0f, vactrolOut);
-        if (deep) cutoff *= 0.25f;
-        
-        float a = std::exp(-2.0f * juce::MathConstants<float>::pi * cutoff / (float)sampleRate);
-        filterState = input * (1.0f - a) + filterState * a;
-        
-        if (mode == 0) return filterState;
-        else if (mode == 1) return input * vcaGain;
-        else return filterState * vcaGain;
-    }
-    
-    void reset() { filterState = 0.0f; }
-};
+#include <cmath>
 
 class Resonator
 {
@@ -64,15 +14,16 @@ public:
     void setPitchSemitones(float semitones);
     void setFeedback(float feedback);
     void setInputCutoff(float cutoffHz);
-    void setBuchla292(float amount);
-    void setLpgMode(int mode);
-    void setLpgDeep(bool deep);
+    void setLoopCutoff(float cutoffHz);
     void setDryWet(float dryWet);
     void setJitter(float jitterAmount);
     void setCrossFeedback(float crossAmt);
     void setPolarity(bool isNegative);
     void setSelfMod(float selfModAmount);
     void setWetGain(float gain);
+    
+    void setFreeze(bool shouldFreeze);
+    void setFreezeTilt(float tilt);
 
     void process(juce::AudioBuffer<float>& buffer);
 
@@ -81,9 +32,7 @@ private:
     static constexpr float maxDelaySamples = 16384.0f;
     double currentSampleRate = 44100.0;
     float currentInputCutoff = 8000.0f;
-    float currentBuchla292 = 0.5f;
-    int currentLpgMode = 2;
-    bool currentLpgDeep = false;
+    float currentLoopCutoff = 4000.0f;
 
     struct DCBlocker
     {
@@ -115,10 +64,10 @@ private:
     {
         juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Lagrange3rd> delayLine { (int) maxDelaySamples };
         juce::dsp::StateVariableTPTFilter<float> inputFilter;
-        Vactrol vactrol;
-        BuchlaLPG lpg;
+        OnePoleLP loopFilter;
         DCBlocker dcBlocker;
         OnePoleLP modFilter;
+        OnePoleLP tiltFilter; // Nouveau
     };
 
     std::vector<ChannelState> channels;
@@ -130,9 +79,10 @@ private:
     juce::SmoothedValue<float> selfModSmoothed;
     juce::SmoothedValue<float> wetGainSmoothed;
     juce::SmoothedValue<float> gateSmoothed;
-    juce::SmoothedValue<float> buchla292Smoothed;
+    juce::SmoothedValue<float> freezeTiltSmoothed; // Nouveau
     
     float polarityMultiplier = 1.0f;
+    bool isFrozen = false;
 
     std::mt19937 jitterGen;
     std::uniform_real_distribution<float> jitterDist { -1.0f, 1.0f };
