@@ -2,6 +2,7 @@
 #include <juce_dsp/juce_dsp.h>
 #include <vector>
 #include <random>
+#include <cmath> // Ajouté pour std::exp et std::pow
 
 struct Vactrol
 {
