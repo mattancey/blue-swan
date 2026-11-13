@@ -1,29 +1,114 @@
-#pragma once
-#include <juce_audio_processors/juce_audio_processors.h>
-#include "PluginProcessor.h"
+#include "PluginEditor.h"
+#include "Params.h"
+#include "UI/Widgets.h"
 
-class BlueSwanAudioProcessorEditor : public juce::AudioProcessorEditor
+BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcessor& p)
+    : AudioProcessorEditor(&p), processorRef(p)
 {
-public:
-    explicit BlueSwanAudioProcessorEditor(BlueSwanAudioProcessor&);
-    ~BlueSwanAudioProcessorEditor() override;
-    void paint(juce::Graphics&) override;
-    void resized() override;
+    macroSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    macroSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
+    addAndMakeVisible(macroSlider);
+    macroLabel.setText("MACRO", juce::dontSendNotification);
+    macroLabel.setJustificationType(juce::Justification::centred);
+    macroLabel.setColour(juce::Label::textColourId, juce::Colours::cyan);
+    addAndMakeVisible(macroLabel);
 
-private:
-    BlueSwanAudioProcessor& processorRef;
+    setupRotarySlider(pitchSlider, pitchLabel, "Pitch", *this);
+    setupRotarySlider(feedbackSlider, feedbackLabel, "Feedback", *this);
+    setupRotarySlider(inputCutoffSlider, inputCutoffLabel, "In Cutoff", *this);
+    setupRotarySlider(loopCutoffSlider, loopCutoffLabel, "Loop Cutoff", *this);
+    setupRotarySlider(dryWetSlider, dryWetLabel, "Dry/Wet", *this);
+    setupRotarySlider(wetGainSlider, wetGainLabel, "Wet Gain", *this);
+    setupRotarySlider(jitterSlider, jitterLabel, "Drift", *this);
+    setupRotarySlider(crossFbSlider, crossFbLabel, "Cross FB", *this);
+    setupRotarySlider(selfModSlider, selfModLabel, "Self-Mod", *this);
     
-    juce::Slider macroSlider, pitchSlider, feedbackSlider, inputCutoffSlider, loopCutoffSlider, dryWetSlider, jitterSlider, crossFbSlider, selfModSlider, wetGainSlider, freezeTiltSlider;
-    juce::Label macroLabel, pitchLabel, feedbackLabel, inputCutoffLabel, loopCutoffLabel, dryWetLabel, jitterLabel, crossFbLabel, selfModLabel, wetGainLabel, freezeTiltLabel;
+    setupRotarySlider(freezeTiltSlider, freezeTiltLabel, "Tilt", *this); // Nouveau
+
+    polarityBox.addItemList({"Positive", "Negative"}, 1);
+    addAndMakeVisible(polarityBox);
+    polarityLabel.setText("Polarity", juce::dontSendNotification);
+    polarityLabel.setJustificationType(juce::Justification::centred);
+    polarityLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+    addAndMakeVisible(polarityLabel);
+
+    freezeButton.setButtonText("FREEZE");
+    freezeButton.setColour(juce::ToggleButton::textColourId, juce::Colours::orange);
+    addAndMakeVisible(freezeButton);
+
+    macroAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::macro, macroSlider);
+    pitchAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::pitch, pitchSlider);
+    feedbackAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::feedback, feedbackSlider);
+    inputCutoffAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::inputCutoff, inputCutoffSlider);
+    loopCutoffAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::loopCutoff, loopCutoffSlider);
+    dryWetAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::dryWet, dryWetSlider);
+    wetGainAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::wetGain, wetGainSlider);
+    jitterAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::jitter, jitterSlider);
+    crossFbAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::crossFb, crossFbSlider);
+    selfModAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::selfMod, selfModSlider);
+    polarityAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(processorRef.apvts, Params::polarity, polarityBox);
     
-    juce::ComboBox polarityBox;
-    juce::Label polarityLabel;
-    juce::ToggleButton freezeButton;
+    freezeTiltAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::freezeTilt, freezeTiltSlider);
+    freezeAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processorRef.apvts, Params::freeze, freezeButton);
 
-    using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
-    std::unique_ptr<SliderAttachment> macroAtt, pitchAtt, feedbackAtt, inputCutoffAtt, loopCutoffAtt, dryWetAtt, jitterAtt, crossFbAtt, selfModAtt, wetGainAtt, freezeTiltAtt;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> polarityAtt;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> freezeAtt;
+    setSize(800, 400); // Un peu plus grand pour tout faire tenir
+}
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BlueSwanAudioProcessorEditor)
-};
+BlueSwanAudioProcessorEditor::~BlueSwanAudioProcessorEditor() = default;
+
+void BlueSwanAudioProcessorEditor::paint(juce::Graphics& g)
+{
+    g.fillAll(juce::Colours::black);
+    g.setColour(juce::Colours::white);
+    g.setFont(20.0f);
+    g.drawFittedText("Blue Swan", getLocalBounds().removeFromTop(40), juce::Justification::centred, 1);
+}
+
+void BlueSwanAudioProcessorEditor::resized()
+{
+    auto area = getLocalBounds().reduced(10);
+    area.removeFromTop(40);
+
+    // Colonne de gauche
+    auto leftArea = area.removeFromLeft(180).reduced(10);
+    macroLabel.setBounds(leftArea.removeFromTop(30));
+    macroSlider.setBounds(leftArea.removeFromTop(100));
+    
+    leftArea.removeFromTop(10);
+    polarityLabel.setBounds(leftArea.removeFromTop(20));
+    polarityBox.setBounds(leftArea.removeFromTop(30));
+    
+    leftArea.removeFromTop(10);
+    freezeButton.setBounds(leftArea.removeFromTop(30));
+    
+    leftArea.removeFromTop(10);
+    freezeTiltLabel.setBounds(leftArea.removeFromTop(20));
+    freezeTiltSlider.setBounds(leftArea.removeFromTop(60));
+
+    // Grille de droite
+    area.removeFromLeft(20); 
+    
+    const int cols = 5;
+    const int rows = 2;
+    const int w = area.getWidth() / cols;
+    const int h = area.getHeight() / rows;
+
+    auto place = [&](juce::Slider& s, juce::Label& l, int col, int row)
+    {
+        juce::Rectangle<int> cell(area.getX() + col * w, area.getY() + row * h, w, h);
+        cell = cell.reduced(5);
+        l.setBounds(cell.removeFromTop(20));
+        s.setBounds(cell);
+    };
+
+    place(pitchSlider, pitchLabel, 0, 0);
+    place(feedbackSlider, feedbackLabel, 1, 0);
+    place(inputCutoffSlider, inputCutoffLabel, 2, 0);
+    place(loopCutoffSlider, loopCutoffLabel, 3, 0);
+    place(dryWetSlider, dryWetLabel, 4, 0);
+    
+    place(jitterSlider, jitterLabel, 0, 1);
+    place(crossFbSlider, crossFbLabel, 1, 1);
+    place(selfModSlider, selfModLabel, 2, 1);
+    place(wetGainSlider, wetGainLabel, 3, 1);
+}
