@@ -12,7 +12,9 @@ public:
     void reset();
 
     void setPitchSemitones(float semitones);
-    void setFeedback(float feedback);
+    void setDecay(float decay);
+    void setPluck(float pluck);
+    void setInharm(float inharm);
     void setInputCutoff(float cutoffHz);
     void setLoopCutoff(float cutoffHz);
     void setDryWet(float dryWet);
@@ -21,9 +23,6 @@ public:
     void setPolarity(bool isNegative);
     void setSelfMod(float selfModAmount);
     void setWetGain(float gain);
-    
-    void setFreeze(bool shouldFreeze);
-    void setFreezeTilt(float tilt);
 
     void process(juce::AudioBuffer<float>& buffer);
 
@@ -60,29 +59,43 @@ private:
         void reset() { z = 0.0f; }
     };
 
+    struct Allpass
+    {
+        float a = 0.0f;
+        float x1 = 0.0f, y1 = 0.0f;
+        void setCoeff(float coeff) { a = juce::jlimit(-0.99f, 0.99f, coeff); }
+        float process(float x) noexcept {
+            float y = a * x + x1 - a * y1;
+            x1 = x; y1 = y;
+            return y;
+        }
+        void reset() { x1 = 0.0f; y1 = 0.0f; }
+    };
+
     struct ChannelState
     {
         juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Lagrange3rd> delayLine { (int) maxDelaySamples };
+        juce::dsp::DelayLine<float> pluckDelay { 100 }; // Petit délai pour le peigne
         juce::dsp::StateVariableTPTFilter<float> inputFilter;
         OnePoleLP loopFilter;
         DCBlocker dcBlocker;
         OnePoleLP modFilter;
-        OnePoleLP tiltFilter; // Nouveau
+        Allpass inharmAllpass; // Filtre de raideur
     };
 
     std::vector<ChannelState> channels;
     juce::SmoothedValue<float> pitchSemitonesSmoothed;
-    juce::SmoothedValue<float> feedbackSmoothed;
+    juce::SmoothedValue<float> decaySmoothed;
+    juce::SmoothedValue<float> pluckSmoothed;
+    juce::SmoothedValue<float> inharmSmoothed;
     juce::SmoothedValue<float> dryWetSmoothed;
     juce::SmoothedValue<float> jitterSmoothed;
     juce::SmoothedValue<float> crossFbSmoothed;
     juce::SmoothedValue<float> selfModSmoothed;
     juce::SmoothedValue<float> wetGainSmoothed;
     juce::SmoothedValue<float> gateSmoothed;
-    juce::SmoothedValue<float> freezeTiltSmoothed; // Nouveau
     
     float polarityMultiplier = 1.0f;
-    bool isFrozen = false;
 
     std::mt19937 jitterGen;
     std::uniform_real_distribution<float> jitterDist { -1.0f, 1.0f };
