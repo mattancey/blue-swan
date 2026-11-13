@@ -32,7 +32,6 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
         ch.inputFilter.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
         ch.inputFilter.reset();
         
-        // Initialisation du Vactrol et du LPG
         ch.vactrol.prepare(sampleRate);
         ch.lpg.prepare(sampleRate);
         
@@ -49,11 +48,7 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
     wetGainSmoothed.reset(sampleRate, 0.02);
     gateSmoothed.reset(sampleRate, 2.0);
     gateSmoothed.setCurrentAndTargetValue(0.0f);
-    buchla292Smoothed.reset(sampleRate, 0.05); // Lissage du contrôle
-    
-    // Note : dans BuchlaLPG::processSample, on a fixé fs à 44100.0f.
-    // Pour une implémentation parfaite, il faudrait passer currentSampleRate.
-    // Mais pour simplifier, on garde 44100.0f pour l'instant.
+    buchla292Smoothed.reset(sampleRate, 0.05);
 }
 
 void Resonator::reset()
@@ -141,26 +136,23 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
             inputAbs = juce::jmax(inputAbs, std::abs(buffer.getReadPointer(ch)[i]));
         }
         
-        if (inputAbs > 0.00398107f) { // -48 dB
+        if (inputAbs > 0.00398107f) {
             gateSmoothed.setCurrentAndTargetValue(1.0f);
         } else {
             gateSmoothed.setTargetValue(0.0f);
         }
         float currentGate = gateSmoothed.getNextValue();
 
-        // --- Traitement du Vactrol et du LPG dans la boucle ---
         for (int ch = 0; ch < numChannels; ++ch)
         {
             auto& state = channels[(size_t) ch];
             
-            // Mise à jour du vactrol
             float vactrolOut = state.vactrol.process(buchlaTarget);
             
             state.delayLine.setDelay(delaySamples);
             const float delayed = state.delayLine.popSample(0);
 
-            // Application du LPG (filtre + VCA) sur le signal de la boucle
-            float loopFiltered = state.lpg.processSample(delayed, vactrolOut, currentLpgMode, currentLpgDeep);
+            float loopFiltered = state.lpg.processSample(delayed, vactrolOut, currentLpgMode, currentLpgDeep, currentSampleRate);
             
             loopFiltered = state.dcBlocker.process(loopFiltered);
             loopOutputs[ch] = loopFiltered;
