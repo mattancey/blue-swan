@@ -1,171 +1,30 @@
-#include "PluginEditor.h"
-#include "Params.h"
-#include "UI/Widgets.h"
+#pragma once
+#include <juce_audio_processors/juce_audio_processors.h>
+#include "PluginProcessor.h"
 
-BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcessor& p)
-    : AudioProcessorEditor(&p), processorRef(p)
+class BlueSwanAudioProcessorEditor : public juce::AudioProcessorEditor, public juce::Timer
 {
-    // --- PANNEAU GAUCHE (Global) ---
-    macroSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-    macroSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
-    addAndMakeVisible(macroSlider);
-    macroLabel.setText("MACRO", juce::dontSendNotification);
-    macroLabel.setJustificationType(juce::Justification::centred);
-    macroLabel.setColour(juce::Label::textColourId, juce::Colours::cyan);
-    addAndMakeVisible(macroLabel);
+public:
+    explicit BlueSwanAudioProcessorEditor(BlueSwanAudioProcessor&);
+    ~BlueSwanAudioProcessorEditor() override;
+    void paint(juce::Graphics&) override;
+    void resized() override;
+    void timerCallback() override;
 
-    polarityBox.addItemList({"Positive", "Negative"}, 1);
-    addAndMakeVisible(polarityBox);
-    polarityLabel.setText("Polarity", juce::dontSendNotification);
-    polarityLabel.setJustificationType(juce::Justification::centred);
-    polarityLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-    addAndMakeVisible(polarityLabel);
-
-    // --- MODULE EKS ---
-    eksEnableButton.setButtonText("EKS ACTIVE");
-    eksEnableButton.setColour(juce::ToggleButton::textColourId, juce::Colours::cyan);
-    addAndMakeVisible(eksEnableButton);
-
-    setupRotarySlider(pluckSlider, pluckLabel, juce::String::fromUTF8("H\u03B2"), *this);
-    setupRotarySlider(inharmSlider, inharmLabel, "Inharm", *this);
-    setupRotarySlider(inharmJitSlider, inharmJitLabel, "Jit", *this);
+private:
+    BlueSwanAudioProcessor& processorRef;
     
-    // --- MODULE ENTREE ---
-    setupRotarySlider(inputCutoffSlider, inputCutoffLabel, "In Cutoff", *this);
-    setupRotarySlider(loopCutoffSlider, loopCutoffLabel, "Loop Cutoff", *this);
-    setupRotarySlider(pitchSlider, pitchLabel, "Pitch", *this);
+    juce::Slider macroSlider, pitchSlider, decaySlider, pluckSlider, inharmSlider, inharmJitSlider, inputCutoffSlider, loopCutoffSlider, dryWetSlider, jitterSlider, crossFbSlider, selfModSlider, wetGainSlider;
+    juce::Label macroLabel, pitchLabel, decayLabel, pluckLabel, inharmLabel, inharmJitLabel, inputCutoffLabel, loopCutoffLabel, dryWetLabel, jitterLabel, crossFbLabel, selfModLabel, wetGainLabel;
     
-    // --- MODULE FEEDBACK ---
-    setupRotarySlider(decaySlider, decayLabel, "Feedback", *this);
-    setupRotarySlider(crossFbSlider, crossFbLabel, "Cross FB", *this);
-    setupRotarySlider(selfModSlider, selfModLabel, "Self-Mod", *this);
+    juce::ComboBox polarityBox;
+    juce::Label polarityLabel;
+    juce::ToggleButton eksEnableButton;
 
-    // --- MODULE SORTIE ---
-    setupRotarySlider(dryWetSlider, dryWetLabel, "Dry/Wet", *this);
-    setupRotarySlider(wetGainSlider, wetGainLabel, "Wet Gain", *this);
-    setupRotarySlider(jitterSlider, jitterLabel, "Drift", *this); // LE DRIFT EST DE RETOUR
-    
-    // --- ATTACHEMENTS ---
-    macroAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::macro, macroSlider);
-    polarityAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(processorRef.apvts, Params::polarity, polarityBox);
-    eksEnableAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processorRef.apvts, Params::eksEnable, eksEnableButton);
+    using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
+    std::unique_ptr<SliderAttachment> macroAtt, pitchAtt, decayAtt, pluckAtt, inharmAtt, inharmJitAtt, inputCutoffAtt, loopCutoffAtt, dryWetAtt, jitterAtt, crossFbAtt, selfModAtt, wetGainAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> polarityAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> eksEnableAtt;
 
-    pluckAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::pluck, pluckSlider);
-    inharmAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::inharm, inharmSlider);
-    inharmJitAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::inharmJit, inharmJitSlider);
-    inputCutoffAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::inputCutoff, inputCutoffSlider);
-    loopCutoffAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::loopCutoff, loopCutoffSlider); // ATTACHEMENT DU LOOP CUTOFF
-    pitchAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::pitch, pitchSlider);
-    decayAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::feedback, decaySlider);
-    crossFbAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::crossFb, crossFbSlider);
-    selfModAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::selfMod, selfModSlider);
-    dryWetAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::dryWet, dryWetSlider);
-    wetGainAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::wetGain, wetGainSlider);
-    jitterAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::jitter, jitterSlider); // ATTACHEMENT DU DRIFT
-
-    setSize(850, 480);
-    startTimerHz(10);
-}
-
-BlueSwanAudioProcessorEditor::~BlueSwanAudioProcessorEditor() 
-{
-    stopTimer();
-}
-
-void BlueSwanAudioProcessorEditor::timerCallback()
-{
-    bool eksActive = processorRef.apvts.getRawParameterValue(Params::eksEnable)->load() > 0.5f;
-    
-    auto setAlpha = [](juce::Component& c, float a) {
-        c.setAlpha(a);
-        c.setEnabled(a > 0.5f);
-    };
-
-    setAlpha(pluckSlider, eksActive ? 1.0f : 0.3f);
-    setAlpha(pluckLabel,  eksActive ? 1.0f : 0.3f);
-    setAlpha(inharmSlider, eksActive ? 1.0f : 0.3f);
-    setAlpha(inharmLabel,  eksActive ? 1.0f : 0.3f);
-    setAlpha(inharmJitSlider, eksActive ? 1.0f : 0.3f);
-    setAlpha(inharmJitLabel,  eksActive ? 1.0f : 0.3f);
-}
-
-void BlueSwanAudioProcessorEditor::paint(juce::Graphics& g)
-{
-    g.fillAll(juce::Colours::black);
-    
-    g.setColour(juce::Colours::white);
-    g.setFont(24.0f);
-    g.drawFittedText("BLUE SWAN", getLocalBounds().removeFromTop(40), juce::Justification::centred, 1);
-    
-    g.setColour(juce::Colours::darkgrey);
-    auto area = getLocalBounds().reduced(10);
-    area.removeFromTop(40);
-    auto leftArea = area.removeFromLeft(150); 
-    
-    g.drawVerticalLine((int)leftArea.getRight() + 10, (float)area.getY(), (float)area.getBottom());
-
-    float colWidth = area.getWidth() / 4.0f;
-    g.drawVerticalLine((int)(area.getX() + colWidth), (float)area.getY(), (float)area.getBottom());
-    g.drawVerticalLine((int)(area.getX() + colWidth * 2), (float)area.getY(), (float)area.getBottom());
-    g.drawVerticalLine((int)(area.getX() + colWidth * 3), (float)area.getY(), (float)area.getBottom());
-}
-
-void BlueSwanAudioProcessorEditor::resized()
-{
-    auto area = getLocalBounds().reduced(10);
-    area.removeFromTop(40);
-
-    // --- ZONE GAUCHE (Macro, Polarity) ---
-    auto leftArea = area.removeFromLeft(150).reduced(10);
-    
-    macroLabel.setBounds(leftArea.removeFromTop(30));
-    macroSlider.setBounds(leftArea.removeFromTop(120));
-    
-    leftArea.removeFromTop(20);
-    polarityLabel.setBounds(leftArea.removeFromTop(20));
-    polarityBox.setBounds(leftArea.removeFromTop(30));
-
-    // --- ZONE DROITE (Grille de 4 colonnes) ---
-    area.removeFromLeft(20); 
-    
-    const int cols = 4;
-    const int colWidth = area.getWidth() / cols;
-    const int rowHeight = area.getHeight() / 3;
-
-    auto place = [&](juce::Slider& s, juce::Label& l, int col, int row) {
-        juce::Rectangle<int> cell(area.getX() + col * colWidth, area.getY() + row * rowHeight, colWidth, rowHeight);
-        cell = cell.reduced(10);
-        l.setBounds(cell.removeFromTop(20));
-        s.setBounds(cell);
-    };
-
-    // COLONNE 1 : Entrée (In Cutoff, Loop Cutoff, Pitch)
-    place(inputCutoffSlider, inputCutoffLabel, 0, 0);
-    place(loopCutoffSlider, loopCutoffLabel, 0, 1);
-    place(pitchSlider, pitchLabel, 0, 2);
-    
-    // COLONNE 2 : EKS (Switch, Hβ, Inharm+Jit)
-    auto eksCell = juce::Rectangle<int>(area.getX() + colWidth, area.getY(), colWidth, rowHeight).reduced(10);
-    eksEnableButton.setBounds(eksCell.removeFromTop(30));
-    
-    place(pluckSlider, pluckLabel, 1, 1);
-    
-    auto inharmRow = juce::Rectangle<int>(area.getX() + colWidth, area.getY() + 2 * rowHeight, colWidth, rowHeight).reduced(10);
-    auto jitArea = inharmRow.removeFromRight(static_cast<int>(inharmRow.getWidth() * 0.35f));
-    
-    inharmJitLabel.setBounds(jitArea.removeFromTop(20));
-    inharmJitSlider.setBounds(jitArea);
-    
-    inharmLabel.setBounds(inharmRow.removeFromTop(20));
-    inharmSlider.setBounds(inharmRow);
-
-    // COLONNE 3 : Feedback (Feedback, Cross FB, Self-Mod)
-    place(decaySlider, decayLabel, 2, 0);
-    place(crossFbSlider, crossFbLabel, 2, 1);
-    place(selfModSlider, selfModLabel, 2, 2);
-
-    // COLONNE 4 : Sortie (Dry/Wet, Wet Gain, Drift)
-    place(dryWetSlider, dryWetLabel, 3, 0);
-    place(wetGainSlider, wetGainLabel, 3, 1);
-    place(jitterSlider, jitterLabel, 3, 2); // DRIFT REPLACÉ
-}
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BlueSwanAudioProcessorEditor)
+};
