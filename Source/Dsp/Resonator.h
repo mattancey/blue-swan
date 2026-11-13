@@ -74,7 +74,8 @@ private:
     juce::SmoothedValue<float> selfModSmoothed;
     juce::SmoothedValue<float> wetGainSmoothed;
     
-    juce::SmoothedValue<float> gateSmoothed; // Remplaçace le gate manuel
+    // LA NOUVELLE VARIABLE EST ICI
+    juce::SmoothedValue<float> gateSmoothed;
     
     float polarityMultiplier = 1.0f;
 
