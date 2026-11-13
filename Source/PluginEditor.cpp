@@ -14,16 +14,18 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     addAndMakeVisible(macroLabel);
 
     setupRotarySlider(pitchSlider, pitchLabel, "Pitch", *this);
-    setupRotarySlider(feedbackSlider, feedbackLabel, "Feedback", *this);
+    setupRotarySlider(decaySlider, decayLabel, "Decay", *this);
+    setupRotarySlider(pluckSlider, pluckLabel, "Pluck", *this);
+    setupRotarySlider(inharmSlider, inharmLabel, "Inharm", *this);
+    
     setupRotarySlider(inputCutoffSlider, inputCutoffLabel, "In Cutoff", *this);
     setupRotarySlider(loopCutoffSlider, loopCutoffLabel, "Loop Cutoff", *this);
     setupRotarySlider(dryWetSlider, dryWetLabel, "Dry/Wet", *this);
+    
     setupRotarySlider(wetGainSlider, wetGainLabel, "Wet Gain", *this);
     setupRotarySlider(jitterSlider, jitterLabel, "Drift", *this);
     setupRotarySlider(crossFbSlider, crossFbLabel, "Cross FB", *this);
     setupRotarySlider(selfModSlider, selfModLabel, "Self-Mod", *this);
-    
-    setupRotarySlider(freezeTiltSlider, freezeTiltLabel, "Tilt", *this); // Nouveau
 
     polarityBox.addItemList({"Positive", "Negative"}, 1);
     addAndMakeVisible(polarityBox);
@@ -32,13 +34,11 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     polarityLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     addAndMakeVisible(polarityLabel);
 
-    freezeButton.setButtonText("FREEZE");
-    freezeButton.setColour(juce::ToggleButton::textColourId, juce::Colours::orange);
-    addAndMakeVisible(freezeButton);
-
     macroAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::macro, macroSlider);
     pitchAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::pitch, pitchSlider);
-    feedbackAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::feedback, feedbackSlider);
+    decayAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::feedback, decaySlider);
+    pluckAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::pluck, pluckSlider);
+    inharmAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::inharm, inharmSlider);
     inputCutoffAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::inputCutoff, inputCutoffSlider);
     loopCutoffAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::loopCutoff, loopCutoffSlider);
     dryWetAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::dryWet, dryWetSlider);
@@ -47,11 +47,8 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     crossFbAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::crossFb, crossFbSlider);
     selfModAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::selfMod, selfModSlider);
     polarityAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(processorRef.apvts, Params::polarity, polarityBox);
-    
-    freezeTiltAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::freezeTilt, freezeTiltSlider);
-    freezeAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processorRef.apvts, Params::freeze, freezeButton);
 
-    setSize(800, 400); // Un peu plus grand pour tout faire tenir
+    setSize(800, 450); // Un peu plus grand pour tout faire tenir
 }
 
 BlueSwanAudioProcessorEditor::~BlueSwanAudioProcessorEditor() = default;
@@ -69,27 +66,19 @@ void BlueSwanAudioProcessorEditor::resized()
     auto area = getLocalBounds().reduced(10);
     area.removeFromTop(40);
 
-    // Colonne de gauche
-    auto leftArea = area.removeFromLeft(180).reduced(10);
+    auto leftArea = area.removeFromLeft(150).reduced(10);
     macroLabel.setBounds(leftArea.removeFromTop(30));
-    macroSlider.setBounds(leftArea.removeFromTop(100));
+    macroSlider.setBounds(leftArea.removeFromTop(120));
     
-    leftArea.removeFromTop(10);
+    leftArea.removeFromTop(20);
     polarityLabel.setBounds(leftArea.removeFromTop(20));
     polarityBox.setBounds(leftArea.removeFromTop(30));
-    
-    leftArea.removeFromTop(10);
-    freezeButton.setBounds(leftArea.removeFromTop(30));
-    
-    leftArea.removeFromTop(10);
-    freezeTiltLabel.setBounds(leftArea.removeFromTop(20));
-    freezeTiltSlider.setBounds(leftArea.removeFromTop(60));
 
-    // Grille de droite
     area.removeFromLeft(20); 
     
-    const int cols = 5;
-    const int rows = 2;
+    // Grille 4x3 pour faire tenir les 12 boutons
+    const int cols = 4;
+    const int rows = 3;
     const int w = area.getWidth() / cols;
     const int h = area.getHeight() / rows;
 
@@ -101,14 +90,20 @@ void BlueSwanAudioProcessorEditor::resized()
         s.setBounds(cell);
     };
 
+    // Ligne 1
     place(pitchSlider, pitchLabel, 0, 0);
-    place(feedbackSlider, feedbackLabel, 1, 0);
-    place(inputCutoffSlider, inputCutoffLabel, 2, 0);
-    place(loopCutoffSlider, loopCutoffLabel, 3, 0);
-    place(dryWetSlider, dryWetLabel, 4, 0);
+    place(decaySlider, decayLabel, 1, 0);
+    place(pluckSlider, pluckLabel, 2, 0);
+    place(inharmSlider, inharmLabel, 3, 0);
     
-    place(jitterSlider, jitterLabel, 0, 1);
-    place(crossFbSlider, crossFbLabel, 1, 1);
-    place(selfModSlider, selfModLabel, 2, 1);
+    // Ligne 2
+    place(inputCutoffSlider, inputCutoffLabel, 0, 1);
+    place(loopCutoffSlider, loopCutoffLabel, 1, 1);
+    place(dryWetSlider, dryWetLabel, 2, 1);
     place(wetGainSlider, wetGainLabel, 3, 1);
+
+    // Ligne 3
+    place(jitterSlider, jitterLabel, 0, 2);
+    place(crossFbSlider, crossFbLabel, 1, 2);
+    place(selfModSlider, selfModLabel, 2, 2);
 }
