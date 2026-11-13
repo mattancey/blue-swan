@@ -7,7 +7,7 @@ namespace Params
     inline constexpr auto feedback = "feedback";
     inline constexpr auto inputCutoff = "inputCutoff";
     inline constexpr auto loopCutoff = "loopCutoff";
-    inline constexpr auto loopRes = "loopRes"; // Nouveau
+    inline constexpr auto loopRes = "loopRes";
     inline constexpr auto dryWet = "dryWet";
     inline constexpr auto macro = "macro";
     inline constexpr auto jitter = "jitter";
@@ -24,7 +24,7 @@ namespace Params
         layout.add(std::make_unique<juce::AudioParameterFloat>(feedback, "Feedback", juce::NormalisableRange<float>(0.0f, 0.98f, 0.001f), 0.85f));
         layout.add(std::make_unique<juce::AudioParameterFloat>(inputCutoff, "Input Cutoff", juce::NormalisableRange<float>(100.0f, 20000.0f, 1.0f, 0.3f), 8000.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>(loopCutoff, "Loop Cutoff", juce::NormalisableRange<float>(100.0f, 20000.0f, 1.0f, 0.3f), 4000.0f));
-        layout.add(std::make_unique<juce::AudioParameterFloat>(loopRes, "Resonance", juce::NormalisableRange<float>(0.1f, 10.0f, 0.01f), 0.707f)); // Nouveau
+        layout.add(std::make_unique<juce::AudioParameterFloat>(loopRes, "Resonance", juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.0f)); // Nouvelle plage
         layout.add(std::make_unique<juce::AudioParameterFloat>(dryWet, "Dry/Wet", juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.5f));
         
         layout.add(std::make_unique<juce::AudioParameterFloat>(macro, "Macro", juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.0f));
