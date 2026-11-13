@@ -30,7 +30,6 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
         ch.delayLine.reset();
         ch.pluckDelay.prepare(spec);
         ch.pluckDelay.reset();
-        ch.pluckDelay.setDelay(2.0f); // Délai fixe de 2 ms pour le peigne
         
         ch.inputFilter.prepare(spec);
         ch.inputFilter.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
@@ -39,7 +38,7 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
         ch.loopFilter.reset();
         ch.dcBlocker.reset();
         ch.modFilter.setCutoff(20.0f, (float) sampleRate);
-        ch.inharmAllpass.reset();
+        for(int i=0; i<4; ++i) ch.inharmAllpass[i].reset();
     }
 
     pitchSemitonesSmoothed.reset(sampleRate, 0.05);
@@ -65,7 +64,7 @@ void Resonator::reset()
         ch.loopFilter.reset();
         ch.dcBlocker.reset();
         ch.modFilter.reset();
-        ch.inharmAllpass.reset();
+        for(int i=0; i<4; ++i) ch.inharmAllpass[i].reset();
     }
     jitterState[0] = 0.0f;
     jitterState[1] = 0.0f;
@@ -120,6 +119,9 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
         
         float delaySamples = semitonesToDelaySamples(pitchSt);
         
+        // Mise à jour du délai du Pluck en fonction de la note (pour que le peigne soit harmonique)
+        float pluckDelayTime = delaySamples * 0.5f; 
+        
         if (drift > 0.001f) {
             for (int ch = 0; ch < numChannels; ++ch) {
                 float noise = jitterDist(jitterGen);
@@ -158,16 +160,16 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
             state.delayLine.setDelay(delaySamples);
             float delayed = state.delayLine.popSample(0);
 
-            // 1. Inharmonicité (Allpass de raideur)
-            float a = inharm * 0.9f;
-            state.inharmAllpass.setCoeff(a);
-            delayed = state.inharmAllpass.process(delayed);
+            // 1. Inharmonicité (Cascade de 4 allpass)
+            float a = -inharm * 0.9f;
+            for (int j = 0; j < 4; ++j) {
+                state.inharmAllpass[j].setCoeff(a);
+                delayed = state.inharmAllpass[j].process(delayed);
+            }
 
-            // 2. Filtre de boucle
+            // 2. Filtre de boucle et perte (Decay)
             float loopFiltered = state.loopFilter.process(delayed);
             loopFiltered = state.dcBlocker.process(loopFiltered);
-            
-            // 3. Application du Decay (Facteur de perte)
             loopFiltered *= decay;
             
             loopOutputs[ch] = loopFiltered;
@@ -179,9 +181,14 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
             auto& state = channels[(size_t) ch];
             float dry = buffer.getReadPointer(ch)[i];
 
-            // 4. Pluck (Filtre en peigne Feed-Forward)
+            // 3. Pluck (Filtre à peigne avec compensation de volume)
+            state.pluckDelay.setDelay(pluckDelayTime);
             float pluckDelayed = state.pluckDelay.popSample(0);
-            float pluckFiltered = dry - (pluck * pluckDelayed);
+            
+            // Crossfade entre le signal direct et le filtre à peigne
+            float comb = dry - pluckDelayed;
+            float pluckFiltered = dry * (1.0f - pluck * 0.5f) + comb * (pluck * 0.5f);
+            
             state.pluckDelay.pushSample(0, dry);
 
             float crossFeedbackSignal = 0.0f;
