@@ -13,15 +13,17 @@ public:
 private:
     BlueSwanAudioProcessor& processorRef;
     
-    juce::Slider macroSlider, pitchSlider, feedbackSlider, inputCutoffSlider, loopCutoffSlider, loopResSlider, dryWetSlider, jitterSlider, crossFbSlider, selfModSlider, wetGainSlider;
-    juce::Label macroLabel, pitchLabel, feedbackLabel, inputCutoffLabel, loopCutoffLabel, loopResLabel, dryWetLabel, jitterLabel, crossFbLabel, selfModLabel, wetGainLabel;
+    juce::Slider macroSlider, pitchSlider, feedbackSlider, inputCutoffSlider, buchla292Slider, dryWetSlider, jitterSlider, crossFbSlider, selfModSlider, wetGainSlider;
+    juce::Label macroLabel, pitchLabel, feedbackLabel, inputCutoffLabel, buchla292Label, dryWetLabel, jitterLabel, crossFbLabel, selfModLabel, wetGainLabel;
     
-    juce::ComboBox polarityBox;
-    juce::Label polarityLabel;
+    juce::ComboBox polarityBox, lpgModeBox;
+    juce::Label polarityLabel, lpgModeLabel;
+    juce::ToggleButton lpgDeepButton;
 
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
-    std::unique_ptr<SliderAttachment> macroAtt, pitchAtt, feedbackAtt, inputCutoffAtt, loopCutoffAtt, loopResAtt, dryWetAtt, jitterAtt, crossFbAtt, selfModAtt, wetGainAtt;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> polarityAtt;
+    std::unique_ptr<SliderAttachment> macroAtt, pitchAtt, feedbackAtt, inputCutoffAtt, buchla292Att, dryWetAtt, jitterAtt, crossFbAtt, selfModAtt, wetGainAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> polarityAtt, lpgModeAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> lpgDeepAtt;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BlueSwanAudioProcessorEditor)
 };
