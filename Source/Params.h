@@ -4,7 +4,9 @@
 namespace Params
 {
     inline constexpr auto pitch = "pitch";
-    inline constexpr auto feedback = "feedback";
+    inline constexpr auto feedback = "feedback"; // Sert de Decay
+    inline constexpr auto pluck = "pluck";
+    inline constexpr auto inharm = "inharm";
     inline constexpr auto inputCutoff = "inputCutoff";
     inline constexpr auto loopCutoff = "loopCutoff";
     inline constexpr auto dryWet = "dryWet";
@@ -14,16 +16,17 @@ namespace Params
     inline constexpr auto polarity = "polarity";
     inline constexpr auto selfMod = "selfMod";
     inline constexpr auto wetGain = "wetGain";
-    inline constexpr auto freeze = "freeze";         // Nouveau
-    inline constexpr auto freezeTilt = "freezeTilt"; // Nouveau
 
     inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     {
         juce::AudioProcessorValueTreeState::ParameterLayout layout;
         
         layout.add(std::make_unique<juce::AudioParameterFloat>(pitch, "Pitch", juce::NormalisableRange<float>(-36.0f, 36.0f, 0.01f), 0.0f));
-        layout.add(std::make_unique<juce::AudioParameterFloat>(feedback, "Feedback", juce::NormalisableRange<float>(0.0f, 0.98f, 0.001f), 0.85f));
-        layout.add(std::make_unique<juce::AudioParameterFloat>(inputCutoff, "Input Cutoff", juce::NormalisableRange<float>(100.0f, 20000.0f, 1.0f, 0.3f), 8000.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>(feedback, "Decay", juce::NormalisableRange<float>(0.0f, 0.99f, 0.001f), 0.85f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>(pluck, "Pluck", juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>(inharm, "Inharm", juce::NormalisableRange<float>(0.0f, 0.99f, 0.001f), 0.0f));
+        
+        layout.add(std::make_unique<juce::AudioParameterFloat>(inputCutoff, "In Cutoff", juce::NormalisableRange<float>(100.0f, 20000.0f, 1.0f, 0.3f), 8000.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>(loopCutoff, "Loop Cutoff", juce::NormalisableRange<float>(100.0f, 20000.0f, 1.0f, 0.3f), 4000.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>(dryWet, "Dry/Wet", juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.5f));
         
@@ -34,9 +37,6 @@ namespace Params
         layout.add(std::make_unique<juce::AudioParameterChoice>(polarity, "Polarity", juce::StringArray{"Positive", "Negative"}, 0));
         
         layout.add(std::make_unique<juce::AudioParameterFloat>(wetGain, "Wet Gain", juce::NormalisableRange<float>(0.0f, 2.0f, 0.01f), 1.0f));
-        
-        layout.add(std::make_unique<juce::AudioParameterBool>(freeze, "Freeze", false));
-        layout.add(std::make_unique<juce::AudioParameterFloat>(freezeTilt, "Tilt", juce::NormalisableRange<float>(-1.0f, 1.0f, 0.001f), 0.0f));
         
         return layout;
     }
