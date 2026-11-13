@@ -59,12 +59,11 @@ private:
         void reset() { z = 0.0f; }
     };
 
-    // Allpass du 1er ordre pour l'inharmonicité
     struct Allpass
     {
         float a = 0.0f;
         float x1 = 0.0f, y1 = 0.0f;
-        void setCoeff(float coeff) { a = juce::jlimit(-0.99f, 0.99f, coeff); }
+        void setCoeff(float coeff) { a = juce::jlimit(-0.999f, 0.999f, coeff); }
         float process(float x) noexcept {
             float y = -a * x + x1 + a * y1;
             x1 = x; y1 = y;
@@ -76,12 +75,12 @@ private:
     struct ChannelState
     {
         juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Lagrange3rd> delayLine { (int) maxDelaySamples };
-        juce::dsp::DelayLine<float> pluckDelay { 2000 }; // Plus grand pour les basses notes
+        juce::dsp::DelayLine<float> pluckDelay { 4000 }; 
         juce::dsp::StateVariableTPTFilter<float> inputFilter;
         OnePoleLP loopFilter;
         DCBlocker dcBlocker;
         OnePoleLP modFilter;
-        Allpass inharmAllpass[4]; // Cascade de 4 allpass
+        Allpass inharmAllpass[16]; // Cascade de 16 pour un effet massif
     };
 
     std::vector<ChannelState> channels;
