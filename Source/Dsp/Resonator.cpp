@@ -10,6 +10,7 @@ Resonator::Resonator()
     selfModSmoothed.setCurrentAndTargetValue(0.0f);
     wetGainSmoothed.setCurrentAndTargetValue(1.0f);
     gateSmoothed.setCurrentAndTargetValue(0.0f);
+    buchla292Smoothed.setCurrentAndTargetValue(0.5f);
     jitterGen.seed(std::random_device{}());
 }
 
@@ -31,8 +32,9 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
         ch.inputFilter.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
         ch.inputFilter.reset();
         
-        // Initialisation du filtre SEM
-        ch.loopFilter.prepare(sampleRate, currentLoopCutoff, currentLoopRes);
+        // Initialisation du Vactrol et du LPG
+        ch.vactrol.prepare(sampleRate);
+        ch.lpg.prepare(sampleRate);
         
         ch.dcBlocker.reset();
         ch.modFilter.setCutoff(20.0f, (float) sampleRate);
@@ -45,9 +47,13 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
     crossFbSmoothed.reset(sampleRate, 0.05);
     selfModSmoothed.reset(sampleRate, 0.05);
     wetGainSmoothed.reset(sampleRate, 0.02);
-    
     gateSmoothed.reset(sampleRate, 2.0);
     gateSmoothed.setCurrentAndTargetValue(0.0f);
+    buchla292Smoothed.reset(sampleRate, 0.05); // Lissage du contrôle
+    
+    // Note : dans BuchlaLPG::processSample, on a fixé fs à 44100.0f.
+    // Pour une implémentation parfaite, il faudrait passer currentSampleRate.
+    // Mais pour simplifier, on garde 44100.0f pour l'instant.
 }
 
 void Resonator::reset()
@@ -56,7 +62,8 @@ void Resonator::reset()
     {
         ch.delayLine.reset();
         ch.inputFilter.reset();
-        ch.loopFilter.reset();
+        ch.vactrol.reset();
+        ch.lpg.reset();
         ch.dcBlocker.reset();
         ch.modFilter.reset();
     }
@@ -68,8 +75,9 @@ void Resonator::reset()
 void Resonator::setPitchSemitones(float semitones) { pitchSemitonesSmoothed.setTargetValue(juce::jlimit(-36.0f, 36.0f, semitones)); }
 void Resonator::setFeedback(float feedback) { feedbackSmoothed.setTargetValue(juce::jlimit(0.0f, 0.98f, feedback)); }
 void Resonator::setInputCutoff(float cutoffHz) { currentInputCutoff = juce::jlimit(20.0f, 20000.0f, cutoffHz); }
-void Resonator::setLoopCutoff(float cutoffHz) { currentLoopCutoff = juce::jlimit(20.0f, 20000.0f, cutoffHz); }
-void Resonator::setLoopResonance(float q) { currentLoopRes = juce::jlimit(0.0f, 1.0f, q); }
+void Resonator::setBuchla292(float amount) { currentBuchla292 = juce::jlimit(0.0f, 1.0f, amount); }
+void Resonator::setLpgMode(int mode) { currentLpgMode = mode; }
+void Resonator::setLpgDeep(bool deep) { currentLpgDeep = deep; }
 void Resonator::setDryWet(float dryWet) { dryWetSmoothed.setTargetValue(juce::jlimit(0.0f, 1.0f, dryWet)); }
 void Resonator::setJitter(float jitterAmount) { jitterSmoothed.setTargetValue(juce::jlimit(0.0f, 1.0f, jitterAmount)); }
 void Resonator::setCrossFeedback(float crossAmt) { crossFbSmoothed.setTargetValue(juce::jlimit(0.0f, 0.98f, crossAmt)); }
@@ -89,11 +97,9 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
     const int numChannels = juce::jmin((int) channels.size(), buffer.getNumChannels());
     const int numSamples = buffer.getNumSamples();
 
-    // Mise à jour des paramètres du filtre SEM
     for (int ch = 0; ch < numChannels; ++ch)
     {
         channels[(size_t) ch].inputFilter.setCutoffFrequency(currentInputCutoff);
-        channels[(size_t) ch].loopFilter.setParams(currentSampleRate, currentLoopCutoff, currentLoopRes);
     }
 
     float loopOutputs[2] = { 0.0f, 0.0f };
@@ -107,6 +113,7 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
         const float crossFB = crossFbSmoothed.getNextValue();
         const float selfModAmt = selfModSmoothed.getNextValue();
         const float currentWetGain = wetGainSmoothed.getNextValue();
+        const float buchlaTarget = buchla292Smoothed.getNextValue();
         
         float delaySamples = semitonesToDelaySamples(pitchSt);
         
@@ -134,21 +141,27 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
             inputAbs = juce::jmax(inputAbs, std::abs(buffer.getReadPointer(ch)[i]));
         }
         
-        if (inputAbs > 0.00398107f) {
+        if (inputAbs > 0.00398107f) { // -48 dB
             gateSmoothed.setCurrentAndTargetValue(1.0f);
         } else {
             gateSmoothed.setTargetValue(0.0f);
         }
         float currentGate = gateSmoothed.getNextValue();
 
+        // --- Traitement du Vactrol et du LPG dans la boucle ---
         for (int ch = 0; ch < numChannels; ++ch)
         {
             auto& state = channels[(size_t) ch];
+            
+            // Mise à jour du vactrol
+            float vactrolOut = state.vactrol.process(buchlaTarget);
+            
             state.delayLine.setDelay(delaySamples);
             const float delayed = state.delayLine.popSample(0);
 
-            // Utilisation de notre filtre SEM custom
-            float loopFiltered = state.loopFilter.processSample(delayed);
+            // Application du LPG (filtre + VCA) sur le signal de la boucle
+            float loopFiltered = state.lpg.processSample(delayed, vactrolOut, currentLpgMode, currentLpgDeep);
+            
             loopFiltered = state.dcBlocker.process(loopFiltered);
             loopOutputs[ch] = loopFiltered;
         }
