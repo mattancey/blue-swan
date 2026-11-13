@@ -6,6 +6,7 @@ Resonator::Resonator()
     decaySmoothed.setCurrentAndTargetValue(0.85f);
     pluckSmoothed.setCurrentAndTargetValue(0.0f);
     inharmSmoothed.setCurrentAndTargetValue(0.0f);
+    inharmJitSmoothed.setCurrentAndTargetValue(0.0f);
     dryWetSmoothed.setCurrentAndTargetValue(0.5f);
     jitterSmoothed.setCurrentAndTargetValue(0.0f);
     crossFbSmoothed.setCurrentAndTargetValue(0.0f);
@@ -45,6 +46,7 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
     decaySmoothed.reset(sampleRate, 0.05);
     pluckSmoothed.reset(sampleRate, 0.05);
     inharmSmoothed.reset(sampleRate, 0.05);
+    inharmJitSmoothed.reset(sampleRate, 0.05);
     dryWetSmoothed.reset(sampleRate, 0.02);
     jitterSmoothed.reset(sampleRate, 0.1);
     crossFbSmoothed.reset(sampleRate, 0.05);
@@ -73,8 +75,10 @@ void Resonator::reset()
 
 void Resonator::setPitchSemitones(float semitones) { pitchSemitonesSmoothed.setTargetValue(juce::jlimit(-36.0f, 36.0f, semitones)); }
 void Resonator::setDecay(float decay) { decaySmoothed.setTargetValue(juce::jlimit(0.0f, 0.99f, decay)); }
+void Resonator::setEksEnable(bool enable) { isEksEnabled = enable; }
 void Resonator::setPluck(float pluck) { pluckSmoothed.setTargetValue(juce::jlimit(0.0f, 1.0f, pluck)); }
 void Resonator::setInharm(float inharm) { inharmSmoothed.setTargetValue(juce::jlimit(0.0f, 0.99f, inharm)); }
+void Resonator::setInharmJitter(float jitter) { inharmJitSmoothed.setTargetValue(juce::jlimit(0.0f, 1.0f, jitter)); }
 void Resonator::setInputCutoff(float cutoffHz) { currentInputCutoff = juce::jlimit(20.0f, 20000.0f, cutoffHz); }
 void Resonator::setLoopCutoff(float cutoffHz) { currentLoopCutoff = juce::jlimit(20.0f, 20000.0f, cutoffHz); }
 void Resonator::setDryWet(float dryWet) { dryWetSmoothed.setTargetValue(juce::jlimit(0.0f, 1.0f, dryWet)); }
@@ -110,6 +114,7 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
         const float decay = decaySmoothed.getNextValue();
         const float pluck = pluckSmoothed.getNextValue();
         const float inharm = inharmSmoothed.getNextValue();
+        const float inharmJit = inharmJitSmoothed.getNextValue();
         
         const float wetMix = dryWetSmoothed.getNextValue();
         const float drift = jitterSmoothed.getNextValue();
@@ -118,8 +123,6 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
         const float currentWetGain = wetGainSmoothed.getNextValue();
         
         float delaySamples = semitonesToDelaySamples(pitchSt);
-        
-        // Le délai du Pluck est synchronisé sur la note (ici on annule la 2ème harmonique)
         float pluckDelayTime = delaySamples * 0.5f; 
         
         if (drift > 0.001f) {
@@ -160,14 +163,18 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
             state.delayLine.setDelay(delaySamples);
             float delayed = state.delayLine.popSample(0);
 
-            // 1. Inharmonicité (Cascade de 16 allpass pour un effet massif)
-            float a = inharm * 0.995f;
-            for (int j = 0; j < 16; ++j) {
-                state.inharmAllpass[j].setCoeff(a);
-                delayed = state.inharmAllpass[j].process(delayed);
+            if (isEksEnabled) {
+                float a = inharm * 0.995f;
+                if (inharmJit > 0.001f) {
+                    // INTENSITÉ DU JIT AUGMENTÉE ICI (0.3f au lieu de 0.05f)
+                    a += jitterDist(jitterGen) * inharmJit * 0.3f; 
+                }
+                for (int j = 0; j < 16; ++j) {
+                    state.inharmAllpass[j].setCoeff(a);
+                    delayed = state.inharmAllpass[j].process(delayed);
+                }
             }
 
-            // 2. Filtre de boucle et perte (Decay)
             float loopFiltered = state.loopFilter.process(delayed);
             loopFiltered = state.dcBlocker.process(loopFiltered);
             loopFiltered *= decay;
@@ -181,18 +188,16 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
             auto& state = channels[(size_t) ch];
             float dry = buffer.getReadPointer(ch)[i];
 
-            // 3. Pluck (Filtre à peigne avec compensation de volume)
-            state.pluckDelay.setDelay(pluckDelayTime);
-            float pluckDelayed = state.pluckDelay.popSample(0);
-            
-            // Soustraction complète quand pluck=1 pour créer un creux très profond
-            float comb = dry - pluckDelayed;
-            float pluckFiltered = dry * (1.0f - pluck) + comb * pluck;
-            
-            // Compensation du volume perdu par la soustraction
-            pluckFiltered *= (1.0f + pluck * 0.5f);
-            
-            state.pluckDelay.pushSample(0, dry);
+            float pluckFiltered = dry;
+            if (isEksEnabled) {
+                state.pluckDelay.setDelay(pluckDelayTime);
+                float pluckDelayed = state.pluckDelay.popSample(0);
+                
+                float comb = dry - pluckDelayed;
+                pluckFiltered = dry * (1.0f - pluck * 0.8f) + comb * (pluck * 0.8f);
+                
+                state.pluckDelay.pushSample(0, dry);
+            }
 
             float crossFeedbackSignal = 0.0f;
             if (numChannels == 2) {
