@@ -36,36 +36,36 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     float basePitch = apvts.getRawParameterValue(Params::pitch)->load();
     float baseFeedback = apvts.getRawParameterValue(Params::feedback)->load();
     float baseInputCutoff = apvts.getRawParameterValue(Params::inputCutoff)->load();
-    float buchla292 = apvts.getRawParameterValue(Params::buchla292)->load();
-    int lpgMode = (int)apvts.getRawParameterValue(Params::lpgMode)->load();
-    bool lpgDeep = apvts.getRawParameterValue(Params::lpgDeep)->load() > 0.5f;
+    float baseLoopCutoff = apvts.getRawParameterValue(Params::loopCutoff)->load();
     float dryWet = apvts.getRawParameterValue(Params::dryWet)->load();
     float jitter = apvts.getRawParameterValue(Params::jitter)->load();
     float crossFb = apvts.getRawParameterValue(Params::crossFb)->load();
     float selfMod = apvts.getRawParameterValue(Params::selfMod)->load();
     float wetGain = apvts.getRawParameterValue(Params::wetGain)->load();
     bool isNegativePolarity = apvts.getRawParameterValue(Params::polarity)->load() > 0.5f;
+    float freezeTilt = apvts.getRawParameterValue(Params::freezeTilt)->load();
     
     float macroValue = apvts.getRawParameterValue(Params::macro)->load();
     if (macroValue > 0.001f) {
         basePitch += macroValue * 24.0f;
         baseInputCutoff *= (1.0f + macroValue * 3.0f);
-        buchla292 = juce::jmin(1.0f, buchla292 + (macroValue * 0.3f));
+        baseLoopCutoff *= (1.0f + macroValue * 3.0f);
         baseFeedback = juce::jmin(0.98f, baseFeedback + (macroValue * 0.1f));
     }
 
     resonator.setPitchSemitones(basePitch);
     resonator.setFeedback(baseFeedback);
     resonator.setInputCutoff(juce::jmin(20000.0f, baseInputCutoff));
-    resonator.setBuchla292(buchla292);
-    resonator.setLpgMode(lpgMode);
-    resonator.setLpgDeep(lpgDeep);
+    resonator.setLoopCutoff(juce::jmin(20000.0f, baseLoopCutoff));
     resonator.setDryWet(dryWet);
     resonator.setJitter(jitter);
     resonator.setCrossFeedback(crossFb);
     resonator.setSelfMod(selfMod);
     resonator.setPolarity(isNegativePolarity);
     resonator.setWetGain(wetGain);
+    
+    resonator.setFreeze(apvts.getRawParameterValue(Params::freeze)->load() > 0.5f);
+    resonator.setFreezeTilt(freezeTilt);
 
     resonator.process(buffer);
 }
