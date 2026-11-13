@@ -19,7 +19,7 @@ public:
     void setCrossFeedback(float crossAmt);
     void setPolarity(bool isNegative);
     void setSelfMod(float selfModAmount);
-    void setWetGain(float gain); // Nouveau
+    void setWetGain(float gain);
 
     void process(juce::AudioBuffer<float>& buffer);
 
@@ -72,11 +72,14 @@ private:
     juce::SmoothedValue<float> jitterSmoothed;
     juce::SmoothedValue<float> crossFbSmoothed;
     juce::SmoothedValue<float> selfModSmoothed;
-    juce::SmoothedValue<float> wetGainSmoothed; // Nouveau
-    juce::SmoothedValue<float> gateSmoothed;    // Nouveau
+    juce::SmoothedValue<float> wetGainSmoothed;
     
     float polarityMultiplier = 1.0f;
-    float envState = 0.0f; // Pour le gate
+
+    // --- NOUVELLES VARIABLES POUR LE GATE ---
+    float gateMultiplier = 0.0f;
+    float attackCoeff = 0.0f;
+    float releaseStep = 0.0f;
 
     std::mt19937 jitterGen;
     std::uniform_real_distribution<float> jitterDist { -1.0f, 1.0f };
