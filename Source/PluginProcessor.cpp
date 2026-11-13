@@ -37,11 +37,12 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     float baseFeedback = apvts.getRawParameterValue(Params::feedback)->load();
     float baseInputCutoff = apvts.getRawParameterValue(Params::inputCutoff)->load();
     float baseLoopCutoff = apvts.getRawParameterValue(Params::loopCutoff)->load();
+    float loopRes = apvts.getRawParameterValue(Params::loopRes)->load(); // Nouveau
     float dryWet = apvts.getRawParameterValue(Params::dryWet)->load();
     float jitter = apvts.getRawParameterValue(Params::jitter)->load();
     float crossFb = apvts.getRawParameterValue(Params::crossFb)->load();
     float selfMod = apvts.getRawParameterValue(Params::selfMod)->load();
-    float wetGain = apvts.getRawParameterValue(Params::wetGain)->load(); // Nouveau
+    float wetGain = apvts.getRawParameterValue(Params::wetGain)->load();
     bool isNegativePolarity = apvts.getRawParameterValue(Params::polarity)->load() > 0.5f;
     
     float macroValue = apvts.getRawParameterValue(Params::macro)->load();
@@ -56,12 +57,13 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     resonator.setFeedback(baseFeedback);
     resonator.setInputCutoff(juce::jmin(20000.0f, baseInputCutoff));
     resonator.setLoopCutoff(juce::jmin(20000.0f, baseLoopCutoff));
+    resonator.setLoopResonance(loopRes); // Nouveau
     resonator.setDryWet(dryWet);
     resonator.setJitter(jitter);
     resonator.setCrossFeedback(crossFb);
     resonator.setSelfMod(selfMod);
     resonator.setPolarity(isNegativePolarity);
-    resonator.setWetGain(wetGain); // Nouveau
+    resonator.setWetGain(wetGain);
 
     resonator.process(buffer);
 }
