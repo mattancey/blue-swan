@@ -38,7 +38,7 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
         ch.loopFilter.reset();
         ch.dcBlocker.reset();
         ch.modFilter.setCutoff(20.0f, (float) sampleRate);
-        for(int i=0; i<4; ++i) ch.inharmAllpass[i].reset();
+        for(int i=0; i<16; ++i) ch.inharmAllpass[i].reset();
     }
 
     pitchSemitonesSmoothed.reset(sampleRate, 0.05);
@@ -64,7 +64,7 @@ void Resonator::reset()
         ch.loopFilter.reset();
         ch.dcBlocker.reset();
         ch.modFilter.reset();
-        for(int i=0; i<4; ++i) ch.inharmAllpass[i].reset();
+        for(int i=0; i<16; ++i) ch.inharmAllpass[i].reset();
     }
     jitterState[0] = 0.0f;
     jitterState[1] = 0.0f;
@@ -119,7 +119,7 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
         
         float delaySamples = semitonesToDelaySamples(pitchSt);
         
-        // Mise à jour du délai du Pluck en fonction de la note (pour que le peigne soit harmonique)
+        // Le délai du Pluck est synchronisé sur la note (ici on annule la 2ème harmonique)
         float pluckDelayTime = delaySamples * 0.5f; 
         
         if (drift > 0.001f) {
@@ -160,9 +160,9 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
             state.delayLine.setDelay(delaySamples);
             float delayed = state.delayLine.popSample(0);
 
-            // 1. Inharmonicité (Cascade de 4 allpass)
-            float a = -inharm * 0.9f;
-            for (int j = 0; j < 4; ++j) {
+            // 1. Inharmonicité (Cascade de 16 allpass pour un effet massif)
+            float a = inharm * 0.995f;
+            for (int j = 0; j < 16; ++j) {
                 state.inharmAllpass[j].setCoeff(a);
                 delayed = state.inharmAllpass[j].process(delayed);
             }
@@ -185,9 +185,12 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
             state.pluckDelay.setDelay(pluckDelayTime);
             float pluckDelayed = state.pluckDelay.popSample(0);
             
-            // Crossfade entre le signal direct et le filtre à peigne
+            // Soustraction complète quand pluck=1 pour créer un creux très profond
             float comb = dry - pluckDelayed;
-            float pluckFiltered = dry * (1.0f - pluck * 0.5f) + comb * (pluck * 0.5f);
+            float pluckFiltered = dry * (1.0f - pluck) + comb * pluck;
+            
+            // Compensation du volume perdu par la soustraction
+            pluckFiltered *= (1.0f + pluck * 0.5f);
             
             state.pluckDelay.pushSample(0, dry);
 
