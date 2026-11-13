@@ -10,7 +10,7 @@ Resonator::Resonator()
     selfModSmoothed.setCurrentAndTargetValue(0.0f);
     wetGainSmoothed.setCurrentAndTargetValue(1.0f);
     gateSmoothed.setCurrentAndTargetValue(0.0f);
-    buchla292Smoothed.setCurrentAndTargetValue(0.5f);
+    freezeTiltSmoothed.setCurrentAndTargetValue(0.0f);
     jitterGen.seed(std::random_device{}());
 }
 
@@ -27,16 +27,13 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
     {
         ch.delayLine.prepare(spec);
         ch.delayLine.reset();
-        
         ch.inputFilter.prepare(spec);
         ch.inputFilter.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
         ch.inputFilter.reset();
-        
-        ch.vactrol.prepare(sampleRate);
-        ch.lpg.prepare(sampleRate);
-        
+        ch.loopFilter.reset();
         ch.dcBlocker.reset();
         ch.modFilter.setCutoff(20.0f, (float) sampleRate);
+        ch.tiltFilter.reset();
     }
 
     pitchSemitonesSmoothed.reset(sampleRate, 0.05);
@@ -48,7 +45,7 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
     wetGainSmoothed.reset(sampleRate, 0.02);
     gateSmoothed.reset(sampleRate, 2.0);
     gateSmoothed.setCurrentAndTargetValue(0.0f);
-    buchla292Smoothed.reset(sampleRate, 0.05);
+    freezeTiltSmoothed.reset(sampleRate, 0.05);
 }
 
 void Resonator::reset()
@@ -57,10 +54,10 @@ void Resonator::reset()
     {
         ch.delayLine.reset();
         ch.inputFilter.reset();
-        ch.vactrol.reset();
-        ch.lpg.reset();
+        ch.loopFilter.reset();
         ch.dcBlocker.reset();
         ch.modFilter.reset();
+        ch.tiltFilter.reset();
     }
     jitterState[0] = 0.0f;
     jitterState[1] = 0.0f;
@@ -70,15 +67,15 @@ void Resonator::reset()
 void Resonator::setPitchSemitones(float semitones) { pitchSemitonesSmoothed.setTargetValue(juce::jlimit(-36.0f, 36.0f, semitones)); }
 void Resonator::setFeedback(float feedback) { feedbackSmoothed.setTargetValue(juce::jlimit(0.0f, 0.98f, feedback)); }
 void Resonator::setInputCutoff(float cutoffHz) { currentInputCutoff = juce::jlimit(20.0f, 20000.0f, cutoffHz); }
-void Resonator::setBuchla292(float amount) { currentBuchla292 = juce::jlimit(0.0f, 1.0f, amount); }
-void Resonator::setLpgMode(int mode) { currentLpgMode = mode; }
-void Resonator::setLpgDeep(bool deep) { currentLpgDeep = deep; }
+void Resonator::setLoopCutoff(float cutoffHz) { currentLoopCutoff = juce::jlimit(20.0f, 20000.0f, cutoffHz); }
 void Resonator::setDryWet(float dryWet) { dryWetSmoothed.setTargetValue(juce::jlimit(0.0f, 1.0f, dryWet)); }
 void Resonator::setJitter(float jitterAmount) { jitterSmoothed.setTargetValue(juce::jlimit(0.0f, 1.0f, jitterAmount)); }
 void Resonator::setCrossFeedback(float crossAmt) { crossFbSmoothed.setTargetValue(juce::jlimit(0.0f, 0.98f, crossAmt)); }
 void Resonator::setSelfMod(float selfModAmount) { selfModSmoothed.setTargetValue(juce::jlimit(0.0f, 1.0f, selfModAmount)); }
 void Resonator::setPolarity(bool isNegative) { polarityMultiplier = isNegative ? -1.0f : 1.0f; }
 void Resonator::setWetGain(float gain) { wetGainSmoothed.setTargetValue(juce::jlimit(0.0f, 2.0f, gain)); }
+void Resonator::setFreeze(bool shouldFreeze) { isFrozen = shouldFreeze; }
+void Resonator::setFreezeTilt(float tilt) { freezeTiltSmoothed.setTargetValue(juce::jlimit(-1.0f, 1.0f, tilt)); }
 
 float Resonator::semitonesToDelaySamples(float semitones) const noexcept
 {
@@ -95,6 +92,7 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
     for (int ch = 0; ch < numChannels; ++ch)
     {
         channels[(size_t) ch].inputFilter.setCutoffFrequency(currentInputCutoff);
+        channels[(size_t) ch].loopFilter.setCutoff(currentLoopCutoff, (float) currentSampleRate);
     }
 
     float loopOutputs[2] = { 0.0f, 0.0f };
@@ -102,13 +100,13 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
     for (int i = 0; i < numSamples; ++i)
     {
         const float pitchSt = pitchSemitonesSmoothed.getNextValue();
-        const float fb = feedbackSmoothed.getNextValue() * polarityMultiplier;
+        const float fb = isFrozen ? 0.99f : feedbackSmoothed.getNextValue() * polarityMultiplier; // Freeze force le feedback
         const float wetMix = dryWetSmoothed.getNextValue();
         const float drift = jitterSmoothed.getNextValue();
         const float crossFB = crossFbSmoothed.getNextValue();
         const float selfModAmt = selfModSmoothed.getNextValue();
         const float currentWetGain = wetGainSmoothed.getNextValue();
-        const float buchlaTarget = buchla292Smoothed.getNextValue();
+        const float currentTilt = freezeTiltSmoothed.getNextValue();
         
         float delaySamples = semitonesToDelaySamples(pitchSt);
         
@@ -146,14 +144,10 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
         for (int ch = 0; ch < numChannels; ++ch)
         {
             auto& state = channels[(size_t) ch];
-            
-            float vactrolOut = state.vactrol.process(buchlaTarget);
-            
             state.delayLine.setDelay(delaySamples);
             const float delayed = state.delayLine.popSample(0);
 
-            float loopFiltered = state.lpg.processSample(delayed, vactrolOut, currentLpgMode, currentLpgDeep, currentSampleRate);
-            
+            float loopFiltered = state.loopFilter.process(delayed);
             loopFiltered = state.dcBlocker.process(loopFiltered);
             loopOutputs[ch] = loopFiltered;
         }
@@ -161,7 +155,8 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
         for (int ch = 0; ch < numChannels; ++ch)
         {
             auto& state = channels[(size_t) ch];
-            const float dry = buffer.getReadPointer(ch)[i];
+            // Si Freeze est activé, on coupe l'entrée Dry (on injecte 0)
+            const float dry = isFrozen ? 0.0f : buffer.getReadPointer(ch)[i];
             
             float crossFeedbackSignal = 0.0f;
             if (numChannels == 2) {
@@ -176,6 +171,21 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
             state.delayLine.pushSample(0, toWrite);
             
             float wetSignal = loopOutputs[ch] + crossFeedbackSignal;
+            
+            // --- FILTRE TILT (Freeze) ---
+            if (currentTilt > 0.001f) {
+                // Passe-Haut
+                float cutoff = 20.0f * std::pow(100.0f, currentTilt); // 20Hz à 2kHz
+                state.tiltFilter.setCutoff(cutoff, (float)currentSampleRate);
+                float lp = state.tiltFilter.process(wetSignal);
+                wetSignal = wetSignal - lp; // HPF = Signal - LPF
+            } else if (currentTilt < -0.001f) {
+                // Passe-Bas
+                float cutoff = 20000.0f * std::pow(0.01f, -currentTilt); // 20kHz à 200Hz
+                state.tiltFilter.setCutoff(cutoff, (float)currentSampleRate);
+                wetSignal = state.tiltFilter.process(wetSignal); // LPF
+            }
+            
             wetSignal *= currentWetGain * currentGate;
             
             buffer.getWritePointer(ch)[i] = dry * (1.0f - wetMix) + wetSignal * wetMix;
