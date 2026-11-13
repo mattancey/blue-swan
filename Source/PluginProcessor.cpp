@@ -37,7 +37,7 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     float baseFeedback = apvts.getRawParameterValue(Params::feedback)->load();
     float baseInputCutoff = apvts.getRawParameterValue(Params::inputCutoff)->load();
     float baseLoopCutoff = apvts.getRawParameterValue(Params::loopCutoff)->load();
-    float loopRes = apvts.getRawParameterValue(Params::loopRes)->load(); // Nouveau
+    float loopRes = apvts.getRawParameterValue(Params::loopRes)->load();
     float dryWet = apvts.getRawParameterValue(Params::dryWet)->load();
     float jitter = apvts.getRawParameterValue(Params::jitter)->load();
     float crossFb = apvts.getRawParameterValue(Params::crossFb)->load();
@@ -57,7 +57,7 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     resonator.setFeedback(baseFeedback);
     resonator.setInputCutoff(juce::jmin(20000.0f, baseInputCutoff));
     resonator.setLoopCutoff(juce::jmin(20000.0f, baseLoopCutoff));
-    resonator.setLoopResonance(loopRes); // Nouveau
+    resonator.setLoopResonance(loopRes);
     resonator.setDryWet(dryWet);
     resonator.setJitter(jitter);
     resonator.setCrossFeedback(crossFb);
