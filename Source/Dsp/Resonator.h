@@ -14,7 +14,7 @@ public:
     void setFeedback(float feedback);
     void setInputCutoff(float cutoffHz);
     void setLoopCutoff(float cutoffHz);
-    void setLoopResonance(float q); // Nouveau
+    void setLoopResonance(float q); 
     void setDryWet(float dryWet);
     void setJitter(float jitterAmount);
     void setCrossFeedback(float crossAmt);
@@ -30,7 +30,7 @@ private:
     double currentSampleRate = 44100.0;
     float currentInputCutoff = 8000.0f;
     float currentLoopCutoff = 4000.0f;
-    float currentLoopRes = 0.707f; // Nouveau
+    float currentLoopRes = 0.707f;
 
     struct DCBlocker
     {
@@ -44,6 +44,7 @@ private:
         void reset() { x1 = 0.0f; y1 = 0.0f; }
     };
 
+    // On garde le OnePole uniquement pour le modFilter (self-mod)
     struct OnePoleLP
     {
         float a = 0.0f, z = 0.0f;
@@ -62,7 +63,7 @@ private:
     {
         juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Lagrange3rd> delayLine { (int) maxDelaySamples };
         juce::dsp::StateVariableTPTFilter<float> inputFilter;
-        juce::dsp::StateVariableTPTFilter<float> loopFilter; // Remplacé ici
+        juce::dsp::StateVariableTPTFilter<float> loopFilter; // StateVariable avec Q
         DCBlocker dcBlocker;
         OnePoleLP modFilter;
     };
