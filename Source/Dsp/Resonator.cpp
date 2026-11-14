@@ -40,6 +40,7 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
         ch.dcBlocker.reset();
         ch.modFilter.setCutoff(20.0f, (float) sampleRate);
         for(int i=0; i<16; ++i) ch.inharmAllpass[i].reset();
+        ch.inharmJitState = 0.0f;
     }
 
     pitchSemitonesSmoothed.reset(sampleRate, 0.05);
@@ -67,6 +68,7 @@ void Resonator::reset()
         ch.dcBlocker.reset();
         ch.modFilter.reset();
         for(int i=0; i<16; ++i) ch.inharmAllpass[i].reset();
+        ch.inharmJitState = 0.0f;
     }
     jitterState[0] = 0.0f;
     jitterState[1] = 0.0f;
@@ -164,11 +166,21 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
             float delayed = state.delayLine.popSample(0);
 
             if (isEksEnabled) {
-                float a = inharm * 0.995f;
+                float a = inharm * 0.99f;
+                
                 if (inharmJit > 0.001f) {
-                    // INTENSITÉ DU JIT AUGMENTÉE ICI (0.3f au lieu de 0.05f)
-                    a += jitterDist(jitterGen) * inharmJit * 0.3f; 
+                    // Marche aléatoire LENTE pour créer un effet de "flottement" audible
+                    float noise = jitterDist(jitterGen);
+                    // 0.00005f crée une modulation très lente (quelques Hz)
+                    state.inharmJitState += 0.00005f * (noise - state.inharmJitState); 
+                    
+                    // L'intensité est forte (0.8f) pour que ce soit très audible
+                    a += state.inharmJitState * inharmJit * 0.8f; 
                 }
+                
+                // Sécurité pour ne pas exploser le filtre
+                a = juce::jlimit(-0.99f, 0.99f, a);
+                
                 for (int j = 0; j < 16; ++j) {
                     state.inharmAllpass[j].setCoeff(a);
                     delayed = state.inharmAllpass[j].process(delayed);
