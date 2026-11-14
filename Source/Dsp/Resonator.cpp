@@ -40,7 +40,6 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
     const int numSamples = buffer.getNumSamples();
     const float polarityMult = isNegative ? -1.0f : 1.0f;
 
-    // Calcul des fréquences LFO (Hz)
     auto getLfoHz = [&](int syncIdx, float rate) {
         if (syncIdx == 0) return rate;
         float beatsPerSec = (float)bpm / 60.0f;
@@ -53,8 +52,8 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
         return beatsPerSec * mult;
     };
 
-    float lfo1Hz = getLfoHz(p.lfo1Sync, p.lfo1Rate);
-    float lfo2Hz = getLfoHz(p.lfo2Sync, p.lfo2Rate);
+    float lfo1HzBase = getLfoHz(p.lfo1Sync, p.lfo1Rate);
+    float lfo2HzBase = getLfoHz(p.lfo2Sync, p.lfo2Rate);
     float lfo1Phase = (p.lfo1Sync > 0) ? (p.lfo1Rate / 100.0f) * 360.0f : 0.0f;
     float lfo2Phase = (p.lfo2Sync > 0) ? (p.lfo2Rate / 100.0f) * 360.0f : 0.0f;
 
@@ -65,20 +64,25 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
 
     for (int i = 0; i < numSamples; ++i)
     {
-        // --- LFOs (Sample by sample pour FM) ---
-        float v1 = lfo1.process(lfo1Hz, lfo1Phase);
-        float v2 = lfo2.process(lfo2Hz, lfo2Phase);
+        // Calcul de la modulation des LFOs par les LFOs (FM)
+        float modLfo1 = (lfo1Value * p.m1_lfo1 + lfo2Value * p.m2_lfo1) * 50.0f; // scale par 50
+        float modLfo2 = (lfo1Value * p.m1_lfo2 + lfo2Value * p.m2_lfo2) * 50.0f;
+        
+        float lfo1Hz = juce::jlimit(0.01f, 100.0f, lfo1HzBase + modLfo1);
+        float lfo2Hz = juce::jlimit(0.01f, 100.0f, lfo2HzBase + modLfo2);
 
-        // --- Modulations ---
+        lfo1Value = lfo1.process(lfo1Hz, lfo1Phase);
+        lfo2Value = lfo2.process(lfo2Hz, lfo2Phase);
+
         auto mod = [&](float base, float d1, float d2, float maxVal) {
-            return juce::jlimit(0.0f, maxVal, base + (v1 * d1) + (v2 * d2));
+            return juce::jlimit(0.0f, maxVal, base + (lfo1Value * d1) + (lfo2Value * d2));
         };
 
         float mMacro = mod(p.macro, p.m1_macro, p.m2_macro, 1.0f);
         float macroBoost = mMacro > 0.001f ? mMacro : 0.0f;
         
-        float mPitch = mod(p.pitch + (macroBoost * 24.0f), p.m1_pitch * 24.0f, p.m2_pitch * 24.0f, 36.0f); // -36 à 36
-        if (p.pitch + (v1*p.m1_pitch) + (v2*p.m2_pitch) < 0) mPitch = -mPitch; // Gestion signe
+        float mPitch = mod(p.pitch + (macroBoost * 24.0f), p.m1_pitch * 24.0f, p.m2_pitch * 24.0f, 36.0f);
+        if (p.pitch + (lfo1Value*p.m1_pitch) + (lfo2Value*p.m2_pitch) < 0) mPitch = -mPitch; 
         
         float mFb = mod(p.feedback + (macroBoost * 0.1f), p.m1_feed, p.m2_feed, 0.99f);
         float mInc = mod(p.inputCutoff * (1.0f + macroBoost * 3.0f), p.m1_incut * 10000.0f, p.m2_incut * 10000.0f, 20000.0f);
@@ -112,7 +116,6 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
             delaySamples = juce::jlimit(4.0f, maxDelaySamples - 8.0f, delaySamples);
         }
 
-        // Gate
         float inputAbs = 0.0f;
         for (int ch = 0; ch < numChannels; ++ch) inputAbs = juce::jmax(inputAbs, std::abs(buffer.getReadPointer(ch)[i]));
         gateSmoothed.setTargetValue(inputAbs > 0.00398107f ? 1.0f : 0.0f);
@@ -124,7 +127,6 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
             state.loopFilter.setCutoff(mLoop, (float)currentSampleRate);
         }
 
-        // Boucle (Lecture)
         for (int ch = 0; ch < numChannels; ++ch) {
             auto& state = channels[ch];
             state.delayLine.setDelay(delaySamples);
@@ -140,7 +142,6 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
             loopOutputs[ch] = loopFiltered * mFb;
         }
 
-        // Écriture (Pluck Feed-Forward)
         for (int ch = 0; ch < numChannels; ++ch) {
             auto& state = channels[ch];
             float dry = buffer.getReadPointer(ch)[i];
