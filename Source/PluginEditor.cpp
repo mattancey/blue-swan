@@ -5,7 +5,6 @@
 BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcessor& p)
     : AudioProcessorEditor(&p), processorRef(p)
 {
-    // --- PANNEAU GAUCHE (Global) ---
     macroSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
     macroSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
     addAndMakeVisible(macroSlider);
@@ -21,7 +20,6 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     polarityLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     addAndMakeVisible(polarityLabel);
 
-    // --- MODULE EKS ---
     eksEnableButton.setButtonText("EKS ACTIVE");
     eksEnableButton.setColour(juce::ToggleButton::textColourId, juce::Colours::cyan);
     addAndMakeVisible(eksEnableButton);
@@ -30,22 +28,19 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     setupRotarySlider(inharmSlider, inharmLabel, "Inharm", *this);
     setupRotarySlider(inharmJitSlider, inharmJitLabel, "Jit", *this);
     
-    // --- MODULE ENTREE ---
     setupRotarySlider(inputCutoffSlider, inputCutoffLabel, "In Cutoff", *this);
     setupRotarySlider(loopCutoffSlider, loopCutoffLabel, "Loop Cutoff", *this);
     setupRotarySlider(pitchSlider, pitchLabel, "Pitch", *this);
     
-    // --- MODULE FEEDBACK ---
     setupRotarySlider(decaySlider, decayLabel, "Feedback", *this);
     setupRotarySlider(crossFbSlider, crossFbLabel, "Cross FB", *this);
+    crossFbSlider.setColour(juce::Slider::rotarySliderFillColourId, juce::Colours::black); // Base noire
     setupRotarySlider(selfModSlider, selfModLabel, "Self-Mod", *this);
 
-    // --- MODULE SORTIE ---
     setupRotarySlider(dryWetSlider, dryWetLabel, "Dry/Wet", *this);
     setupRotarySlider(wetGainSlider, wetGainLabel, "Wet Gain", *this);
     setupRotarySlider(jitterSlider, jitterLabel, "Drift", *this);
     
-    // --- ATTACHEMENTS ---
     macroAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::macro, macroSlider);
     polarityAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(processorRef.apvts, Params::polarity, polarityBox);
     eksEnableAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processorRef.apvts, Params::eksEnable, eksEnableButton);
@@ -74,40 +69,39 @@ BlueSwanAudioProcessorEditor::~BlueSwanAudioProcessorEditor()
 
 void BlueSwanAudioProcessorEditor::timerCallback()
 {
-    // 1. Gestion du grisage des boutons EKS
     bool eksActive = processorRef.apvts.getRawParameterValue(Params::eksEnable)->load() > 0.5f;
-    auto setAlpha = [](juce::Component& c, float a) {
-        c.setAlpha(a);
-        c.setEnabled(a > 0.5f);
+    auto setActive = [](juce::Component& c, bool active) {
+        c.setAlpha(active ? 1.0f : 0.3f);
+        c.setEnabled(active);
     };
 
-    setAlpha(pluckSlider, eksActive ? 1.0f : 0.3f);
-    setAlpha(pluckLabel,  eksActive ? 1.0f : 0.3f);
-    setAlpha(inharmSlider, eksActive ? 1.0f : 0.3f);
-    setAlpha(inharmLabel,  eksActive ? 1.0f : 0.3f);
-    setAlpha(inharmJitSlider, eksActive ? 1.0f : 0.3f);
-    setAlpha(inharmJitLabel,  eksActive ? 1.0f : 0.3f);
+    setActive(pluckSlider, eksActive);
+    setActive(pluckLabel, eksActive);
+    setActive(inharmSlider, eksActive);
+    setActive(inharmLabel, eksActive);
+    setActive(inharmJitSlider, eksActive);
+    setActive(inharmJitLabel, eksActive);
 
-    // 2. Gestion de la couleur du Cross FB (Alerte de danger)
+    // --- GESTION COULEUR CROSS FB ---
     float fb = processorRef.apvts.getRawParameterValue(Params::feedback)->load();
     float crossFb = processorRef.apvts.getRawParameterValue(Params::crossFb)->load();
+    bool isNeg = processorRef.apvts.getRawParameterValue(Params::polarity)->load() > 0.5f;
 
-    juce::Colour baseColor = juce::Colours::white; // Couleur par défaut de JUCE
-    juce::Colour finalColor = baseColor;
+    juce::Colour finalColor = juce::Colours::black; // Base noire
 
-    if (fb > 0.6f && crossFb > 0.3f) {
+    if (!isNeg && fb > 0.6f && crossFb > 0.3f) {
         if (crossFb < 0.6f) {
-            // Dégradé de 0.3 à 0.6
-            float normalized = (crossFb - 0.3f) / 0.3f; // Valeur entre 0.0 et 1.0
-            finalColor = baseColor.interpolatedWith(juce::Colours::red, normalized);
+            // Dégradé sur la partie supérieure : de noir vers rouge
+            float normalized = (crossFb - 0.3f) / 0.3f;
+            finalColor = finalColor.interpolatedWith(juce::Colours::red, normalized);
         } else {
-            // Rouge vif au-delà de 0.6
+            // Rouge vif tout en haut
             finalColor = juce::Colours::red;
         }
     }
 
-    // Mise à jour de la couleur sur le bouton
     crossFbSlider.setColour(juce::Slider::rotarySliderFillColourId, finalColor);
+    crossFbSlider.repaint();
 }
 
 void BlueSwanAudioProcessorEditor::paint(juce::Graphics& g)
@@ -158,12 +152,10 @@ void BlueSwanAudioProcessorEditor::resized()
         s.setBounds(cell);
     };
 
-    // COLONNE 1 : Entrée
     place(inputCutoffSlider, inputCutoffLabel, 0, 0);
     place(loopCutoffSlider, loopCutoffLabel, 0, 1);
     place(pitchSlider, pitchLabel, 0, 2);
     
-    // COLONNE 2 : EKS
     auto eksCell = juce::Rectangle<int>(area.getX() + colWidth, area.getY(), colWidth, rowHeight).reduced(10);
     eksEnableButton.setBounds(eksCell.removeFromTop(30));
     
@@ -178,12 +170,10 @@ void BlueSwanAudioProcessorEditor::resized()
     inharmLabel.setBounds(inharmRow.removeFromTop(20));
     inharmSlider.setBounds(inharmRow);
 
-    // COLONNE 3 : Feedback
     place(decaySlider, decayLabel, 2, 0);
     place(crossFbSlider, crossFbLabel, 2, 1);
     place(selfModSlider, selfModLabel, 2, 2);
 
-    // COLONNE 4 : Sortie
     place(dryWetSlider, dryWetLabel, 3, 0);
     place(wetGainSlider, wetGainLabel, 3, 1);
     place(jitterSlider, jitterLabel, 3, 2);
