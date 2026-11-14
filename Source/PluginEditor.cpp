@@ -25,12 +25,10 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     drawerButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     drawerButton.onClick = [this]() {
         isDrawerOpen = !isDrawerOpen;
-        int targetHeight = isDrawerOpen ? 850 : 480;
-        animator.animateComponent(this, getBounds().withHeight(targetHeight), 1.0f, 1000, 0.0f, -1, -1); // Animation 1s
+        targetHeight = isDrawerOpen ? 850.0f : 480.0f;
     };
     addAndMakeVisible(drawerButton);
 
-    // Matrice (14 colonnes)
     juce::StringArray names = {"Pitch", "Feed", "InCut", "LoopC", "Hβ", "Inharm", "Cross", "Self", "Drift", "DryWet", "WetGain", "Macro", "LFO1", "LFO2"};
     juce::StringArray m1Ids = {Params::m1_pitch, Params::m1_feed, Params::m1_incut, Params::m1_loopcut, Params::m1_hbeta, Params::m1_inharm, Params::m1_cross, Params::m1_self, Params::m1_drift, Params::m1_drywet, Params::m1_wetgain, Params::m1_macro, Params::m1_lfo1, Params::m1_lfo2};
     juce::StringArray m2Ids = {Params::m2_pitch, Params::m2_feed, Params::m2_incut, Params::m2_loopcut, Params::m2_hbeta, Params::m2_inharm, Params::m2_cross, Params::m2_self, Params::m2_drift, Params::m2_drywet, Params::m2_wetgain, Params::m2_macro, Params::m2_lfo1, Params::m2_lfo2};
@@ -52,17 +50,8 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
         m2Atts[i] = std::make_unique<SliderAttachment>(processorRef.apvts, m2Ids[i], m2Sliders[i]);
     }
 
-    lfo1NameLabel.setText("LFO\n1", juce::dontSendNotification); 
-    lfo1NameLabel.setJustificationType(juce::Justification::centred); 
-    lfo1NameLabel.setColour(juce::Label::textColourId, juce::Colours::cyan); 
-    lfo1NameLabel.setFont(juce::Font(juce::FontOptions(14.0f))); // CORRIGÉ ICI
-    addChildComponent(lfo1NameLabel);
-    
-    lfo2NameLabel.setText("LFO\n2", juce::dontSendNotification); 
-    lfo2NameLabel.setJustificationType(juce::Justification::centred); 
-    lfo2NameLabel.setColour(juce::Label::textColourId, juce::Colours::cyan); 
-    lfo2NameLabel.setFont(juce::Font(juce::FontOptions(14.0f))); // CORRIGÉ ICI
-    addChildComponent(lfo2NameLabel);
+    lfo1NameLabel.setText("LFO\n1", juce::dontSendNotification); lfo1NameLabel.setJustificationType(juce::Justification::centred); lfo1NameLabel.setColour(juce::Label::textColourId, juce::Colours::cyan); lfo1NameLabel.setFont(juce::Font(juce::FontOptions(14.0f))); addChildComponent(lfo1NameLabel);
+    lfo2NameLabel.setText("LFO\n2", juce::dontSendNotification); lfo2NameLabel.setJustificationType(juce::Justification::centred); lfo2NameLabel.setColour(juce::Label::textColourId, juce::Colours::cyan); lfo2NameLabel.setFont(juce::Font(juce::FontOptions(14.0f))); addChildComponent(lfo2NameLabel);
 
     juce::StringArray syncs = {"Free", "1/1", "1/1 T", "1/1 D", "1/2", "1/2 T", "1/2 D", "1/4", "1/4 T", "1/4 D", "1/8", "1/8 T", "1/8 D", "1/16", "1/16 T", "1/16 D"};
     juce::StringArray shapes = {"Sine", "Tri", "Saw Up", "Saw Dn", "Sqr", "Pulse", "Ramp", "Exp Dec", "Exp Rse", "S&H", "Smth Rnd", "Logistic", "Stairs", "Dbl Sine", "SOMA"};
@@ -105,13 +94,22 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     mainAtts[11] = std::make_unique<SliderAttachment>(processorRef.apvts, Params::macro, macroSlider);
 
     setSize(850, 480);
-    startTimerHz(10);
+    startTimerHz(60); // 60 fps pour l'animation
 }
 
 BlueSwanAudioProcessorEditor::~BlueSwanAudioProcessorEditor() { stopTimer(); }
 
 void BlueSwanAudioProcessorEditor::timerCallback()
 {
+    // Animation fluide et sûre
+    if (std::abs(currentHeight - targetHeight) > 1.0f) {
+        currentHeight += (targetHeight - currentHeight) * 0.15f;
+        setSize(850, (int)currentHeight);
+    } else if ((int)currentHeight != (int)targetHeight) {
+        currentHeight = targetHeight;
+        setSize(850, (int)currentHeight);
+    }
+
     float fb = processorRef.apvts.getRawParameterValue(Params::feedback)->load();
     float crossFb = processorRef.apvts.getRawParameterValue(Params::crossFb)->load();
     juce::Colour finalColor = juce::Colours::black;
@@ -133,7 +131,7 @@ void BlueSwanAudioProcessorEditor::paint(juce::Graphics& g)
     }
 
     g.setColour(juce::Colours::white);
-    g.setFont(juce::Font(juce::FontOptions(24.0f))); // CORRIGÉ ICI
+    g.setFont(juce::Font(juce::FontOptions(24.0f)));
     g.drawFittedText("BLUE SWAN", getLocalBounds().removeFromTop(40), juce::Justification::centred, 1);
     
     g.setColour(juce::Colours::darkgrey);
