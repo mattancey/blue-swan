@@ -15,8 +15,9 @@ private:
     BlueSwanAudioProcessor& processorRef;
     bool isDrawerOpen = false;
     
-    // Animation du tiroir
-    juce::ComponentAnimator animator;
+    // Variables pour l'animation manuelle
+    float currentHeight = 480.0f;
+    float targetHeight = 480.0f;
 
     juce::Slider macroSlider, pitchSlider, decaySlider, pluckSlider, inharmSlider, inputCutoffSlider, loopCutoffSlider, dryWetSlider, jitterSlider, crossFbSlider, selfModSlider, wetGainSlider;
     juce::Label macroLabel, pitchLabel, decayLabel, pluckLabel, inharmLabel, inputCutoffLabel, loopCutoffLabel, dryWetLabel, jitterLabel, crossFbLabel, selfModLabel, wetGainLabel;
@@ -25,10 +26,9 @@ private:
     
     juce::TextButton drawerButton { "MODULATION" };
 
-    // Matrice (14 destinations)
     juce::Slider m1Sliders[14], m2Sliders[14];
     juce::Label matrixLabels[14];
-    juce::Label lfo1NameLabel, lfo2NameLabel; // Nouveaux labels LFO 1 et 2
+    juce::Label lfo1NameLabel, lfo2NameLabel;
     
     juce::ComboBox lfo1SyncBox, lfo1ShapeBox, lfo2SyncBox, lfo2ShapeBox;
     juce::Slider lfo1RateSlider, lfo1ChaosSlider, lfo1PwSlider;
