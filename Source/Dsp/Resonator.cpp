@@ -56,6 +56,7 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
     gateSmoothed.setCurrentAndTargetValue(0.0f);
     
     inharmLfoPhase = 0.0f;
+    inharmLfoValue = 0.0f;
 }
 
 void Resonator::reset()
@@ -74,6 +75,7 @@ void Resonator::reset()
     jitterState[1] = 0.0f;
     gateSmoothed.setCurrentAndTargetValue(0.0f);
     inharmLfoPhase = 0.0f;
+    inharmLfoValue = 0.0f;
 }
 
 void Resonator::setPitchSemitones(float semitones) { pitchSemitonesSmoothed.setTargetValue(juce::jlimit(-36.0f, 36.0f, semitones)); }
@@ -103,6 +105,14 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
     const int numChannels = juce::jmin((int) channels.size(), buffer.getNumChannels());
     const int numSamples = buffer.getNumSamples();
 
+    // SI L'EKS EST INACTIF : On nettoie les mémoires pour qu'il n'y ait aucun résidu
+    if (!isEksEnabled) {
+        for (auto& ch : channels) {
+            for (int j = 0; j < 24; ++j) ch.inharmAllpass[j].reset();
+            ch.pluckDelay.reset();
+        }
+    }
+
     for (int ch = 0; ch < numChannels; ++ch)
     {
         channels[(size_t) ch].inputFilter.setCutoffFrequency(currentInputCutoff);
@@ -129,16 +139,17 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
         float delaySamples = semitonesToDelaySamples(pitchSt);
         float pluckDelayTime = delaySamples * 0.5f; 
         
-        // LFO pour secouer l'Inharm à 4 Hz
-        float lfoVal = std::sin(inharmLfoPhase * juce::MathConstants<float>::twoPi);
+        // --- LFO SAMPLE & HOLD POUR LE JIT ---
         inharmLfoPhase += lfoInc;
-        if (inharmLfoPhase >= 1.0f) inharmLfoPhase -= 1.0f;
+        if (inharmLfoPhase >= 1.0f) {
+            inharmLfoPhase -= 1.0f;
+            // Génère une nouvelle valeur aléatoire toutes les 250 ms (4 Hz)
+            inharmLfoValue = jitterDist(jitterGen); 
+        }
 
-        // Modulation de l'inharmonicité
-        float modInharm = inharm + (lfoVal * inharmJit);
-        
-        // SÉCURITÉ ABSOLUE : On bloque à 0.9 pour ne pas exploser
-        modInharm = juce::jlimit(-0.9f, 0.9f, modInharm);
+        // Modulation brusque de l'Inharm
+        float modInharm = inharm + (inharmLfoValue * inharmJit);
+        modInharm = juce::jlimit(-0.99f, 0.99f, modInharm);
 
         if (drift > 0.001f) {
             for (int ch = 0; ch < numChannels; ++ch) {
