@@ -6,7 +6,6 @@ Resonator::Resonator()
     decaySmoothed.setCurrentAndTargetValue(0.85f);
     pluckSmoothed.setCurrentAndTargetValue(0.0f);
     inharmSmoothed.setCurrentAndTargetValue(0.0f);
-    inharmJitSmoothed.setCurrentAndTargetValue(0.0f);
     dryWetSmoothed.setCurrentAndTargetValue(0.5f);
     jitterSmoothed.setCurrentAndTargetValue(0.0f);
     crossFbSmoothed.setCurrentAndTargetValue(0.0f);
@@ -46,7 +45,6 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
     decaySmoothed.reset(sampleRate, 0.05);
     pluckSmoothed.reset(sampleRate, 0.05);
     inharmSmoothed.reset(sampleRate, 0.05);
-    inharmJitSmoothed.reset(sampleRate, 0.05);
     dryWetSmoothed.reset(sampleRate, 0.02);
     jitterSmoothed.reset(sampleRate, 0.1);
     crossFbSmoothed.reset(sampleRate, 0.05);
@@ -54,8 +52,6 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
     wetGainSmoothed.reset(sampleRate, 0.02);
     gateSmoothed.reset(sampleRate, 2.0);
     gateSmoothed.setCurrentAndTargetValue(0.0f);
-    
-    inharmLfoPhase = 0.0f;
 }
 
 void Resonator::reset()
@@ -73,15 +69,12 @@ void Resonator::reset()
     jitterState[0] = 0.0f;
     jitterState[1] = 0.0f;
     gateSmoothed.setCurrentAndTargetValue(0.0f);
-    inharmLfoPhase = 0.0f;
 }
 
 void Resonator::setPitchSemitones(float semitones) { pitchSemitonesSmoothed.setTargetValue(juce::jlimit(-36.0f, 36.0f, semitones)); }
 void Resonator::setDecay(float decay) { decaySmoothed.setTargetValue(juce::jlimit(0.0f, 0.99f, decay)); }
-void Resonator::setEksEnable(bool enable) { isEksEnabled = enable; }
 void Resonator::setPluck(float pluck) { pluckSmoothed.setTargetValue(juce::jlimit(0.0f, 1.0f, pluck)); }
 void Resonator::setInharm(float inharm) { inharmSmoothed.setTargetValue(juce::jlimit(0.0f, 0.99f, inharm)); }
-void Resonator::setInharmJitter(float jitter) { inharmJitSmoothed.setTargetValue(juce::jlimit(0.0f, 1.0f, jitter)); }
 void Resonator::setInputCutoff(float cutoffHz) { currentInputCutoff = juce::jlimit(20.0f, 20000.0f, cutoffHz); }
 void Resonator::setLoopCutoff(float cutoffHz) { currentLoopCutoff = juce::jlimit(20.0f, 20000.0f, cutoffHz); }
 void Resonator::setDryWet(float dryWet) { dryWetSmoothed.setTargetValue(juce::jlimit(0.0f, 1.0f, dryWet)); }
@@ -110,15 +103,13 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
     }
 
     float loopOutputs[2] = { 0.0f, 0.0f };
-    const float lfoInc = 4.0f / (float)currentSampleRate; 
 
     for (int i = 0; i < numSamples; ++i)
     {
         const float pitchSt = pitchSemitonesSmoothed.getNextValue();
         const float decay = decaySmoothed.getNextValue();
-        const float pluck = isEksEnabled ? pluckSmoothed.getNextValue() : 0.0f;
-        const float inharm = isEksEnabled ? inharmSmoothed.getNextValue() : 0.0f;
-        const float inharmJit = isEksEnabled ? inharmJitSmoothed.getNextValue() : 0.0f;
+        const float pluck = pluckSmoothed.getNextValue();
+        const float inharm = inharmSmoothed.getNextValue();
         
         const float wetMix = dryWetSmoothed.getNextValue();
         const float drift = jitterSmoothed.getNextValue();
@@ -128,14 +119,6 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
         
         float delaySamples = semitonesToDelaySamples(pitchSt);
         float pluckDelayTime = delaySamples * 0.5f; 
-        
-        // LFO Sinusoidal Unipolaire (0 à 1) pour le Jit
-        inharmLfoPhase += lfoInc;
-        if (inharmLfoPhase >= 1.0f) inharmLfoPhase -= 1.0f;
-        float lfo_val = (std::sin(inharmLfoPhase * juce::MathConstants<float>::twoPi) + 1.0f) * 0.5f;
-
-        float modInharm = inharm - (inharm * inharmJit) + (lfo_val * inharm * inharmJit);
-        modInharm = juce::jlimit(0.0f, 0.99f, modInharm);
 
         if (drift > 0.001f) {
             for (int ch = 0; ch < numChannels; ++ch) {
@@ -175,27 +158,12 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
             state.delayLine.setDelay(delaySamples);
             float delayed = state.delayLine.popSample(0);
 
-            // 1. Hβ (Pluck) DÉPLACÉ ICI : On sculpte le son dans la boucle
-            if (isEksEnabled) {
-                state.pluckDelay.setDelay(pluckDelayTime);
-                float pluckDelayed = state.pluckDelay.popSample(0);
-                state.pluckDelay.pushSample(0, delayed); // On alimente le peigne avec le signal de la boucle
-                
-                // Filtre à peigne : on soustrait une version retardée pour créer des creux spectraux
-                float comb = delayed - (pluckDelayed * pluck);
-                // Compensation de volume pour ne pas perdre d'énergie
-                delayed = comb * (1.0f / (1.0f + pluck * 0.5f));
+            // Inharm
+            for (int j = 0; j < 24; ++j) {
+                state.inharmAllpass[j].setCoeff(inharm * 0.99f);
+                delayed = state.inharmAllpass[j].process(delayed);
             }
 
-            // 2. Inharm
-            if (isEksEnabled) {
-                for (int j = 0; j < 24; ++j) {
-                    state.inharmAllpass[j].setCoeff(modInharm);
-                    delayed = state.inharmAllpass[j].process(delayed);
-                }
-            }
-
-            // 3. Filtre de boucle et Decay
             float loopFiltered = state.loopFilter.process(delayed);
             loopFiltered = state.dcBlocker.process(loopFiltered);
             loopFiltered *= decay;
@@ -203,12 +171,26 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
             loopOutputs[ch] = loopFiltered;
         }
 
-        // --- ÉCRITURE DANS LA BOUCLE ---
+        // --- ÉCRITURE DANS LA BOUCLE (Pluck à l'entrée) ---
         for (int ch = 0; ch < numChannels; ++ch)
         {
             auto& state = channels[(size_t) ch];
-            // Le signal Dry n'est plus filtré par le Hβ, il va directement dans le mix
             float dry = buffer.getReadPointer(ch)[i];
+
+            // Hβ (Pluck) Feed-Forward avec intensité augmentée de 50% (0.8 -> 1.2)
+            state.pluckDelay.setDelay(pluckDelayTime);
+            float pluckDelayed = state.pluckDelay.popSample(0);
+            
+            float comb = dry - pluckDelayed;
+            
+            // On intensifie le mélange à 1.2f au lieu de 0.8f
+            float mixAmount = pluck * 1.2f; 
+            // On s'assure de ne pas dépasser 1.0 pour le mélange final
+            mixAmount = juce::jlimit(0.0f, 1.0f, mixAmount); 
+
+            float pluckFiltered = dry * (1.0f - mixAmount) + comb * mixAmount;
+            
+            state.pluckDelay.pushSample(0, dry);
 
             float crossFeedbackSignal = 0.0f;
             if (numChannels == 2) {
@@ -216,7 +198,7 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
                 crossFeedbackSignal = loopOutputs[otherCh] * crossFB;
             }
 
-            const float inputFiltered = state.inputFilter.processSample(0, dry);
+            const float inputFiltered = state.inputFilter.processSample(0, pluckFiltered);
             float toWrite = inputFiltered + (loopOutputs[ch] * polarityMultiplier) + crossFeedbackSignal;
             toWrite = std::tanh(toWrite);
 
