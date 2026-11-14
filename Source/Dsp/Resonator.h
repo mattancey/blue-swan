@@ -13,10 +13,8 @@ public:
 
     void setPitchSemitones(float semitones);
     void setDecay(float decay);
-    void setEksEnable(bool enable);
     void setPluck(float pluck);
     void setInharm(float inharm);
-    void setInharmJitter(float jitter);
     void setInputCutoff(float cutoffHz);
     void setLoopCutoff(float cutoffHz);
     void setDryWet(float dryWet);
@@ -91,8 +89,6 @@ private:
     juce::SmoothedValue<float> decaySmoothed;
     juce::SmoothedValue<float> pluckSmoothed;
     juce::SmoothedValue<float> inharmSmoothed;
-    juce::SmoothedValue<float> inharmJitSmoothed; 
-    bool isEksEnabled = true;
     
     juce::SmoothedValue<float> dryWetSmoothed;
     juce::SmoothedValue<float> jitterSmoothed;
@@ -102,10 +98,6 @@ private:
     juce::SmoothedValue<float> gateSmoothed;
     
     float polarityMultiplier = 1.0f;
-    
-    // Variables pour le LFO Sample & Hold (Jitter)
-    float inharmLfoPhase = 0.0f;
-    float inharmLfoValue = 0.0f; 
 
     std::mt19937 jitterGen;
     std::uniform_real_distribution<float> jitterDist { -1.0f, 1.0f };
