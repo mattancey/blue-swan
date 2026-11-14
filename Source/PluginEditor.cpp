@@ -5,77 +5,120 @@
 BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcessor& p)
     : AudioProcessorEditor(&p), processorRef(p)
 {
-    macroSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-    macroSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
-    addAndMakeVisible(macroSlider);
-    macroLabel.setText("MACRO", juce::dontSendNotification);
-    macroLabel.setJustificationType(juce::Justification::centred);
+    // --- PARAMÈTRES DE BASE (Noms abrégés) ---
+    setupRotarySlider(macroSlider, macroLabel, "MACRO", *this);
     macroLabel.setColour(juce::Label::textColourId, juce::Colours::cyan);
-    addAndMakeVisible(macroLabel);
-
-    polarityBox.addItemList({"Positive", "Negative"}, 1);
-    addAndMakeVisible(polarityBox);
-    polarityLabel.setText("Polarity", juce::dontSendNotification);
-    polarityLabel.setJustificationType(juce::Justification::centred);
-    polarityLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-    addAndMakeVisible(polarityLabel);
-
+    
+    setupRotarySlider(inputCutoffSlider, inputCutoffLabel, "In Cut", *this);
+    setupRotarySlider(loopCutoffSlider, loopCutoffLabel, "Loop Cut", *this);
+    setupRotarySlider(pitchSlider, pitchLabel, "Pitch", *this);
+    
     setupRotarySlider(pluckSlider, pluckLabel, juce::String::fromUTF8("H\u03B2"), *this);
     setupRotarySlider(inharmSlider, inharmLabel, "Inharm", *this);
     
-    setupRotarySlider(inputCutoffSlider, inputCutoffLabel, "In Cutoff", *this);
-    setupRotarySlider(loopCutoffSlider, loopCutoffLabel, "Loop Cutoff", *this);
-    setupRotarySlider(pitchSlider, pitchLabel, "Pitch", *this);
-    
-    setupRotarySlider(decaySlider, decayLabel, "Feedback", *this);
-    setupRotarySlider(crossFbSlider, crossFbLabel, "Cross FB", *this);
+    setupRotarySlider(decaySlider, decayLabel, "Feedbk", *this);
+    setupRotarySlider(crossFbSlider, crossFbLabel, "CrossFB", *this);
     crossFbSlider.setColour(juce::Slider::rotarySliderFillColourId, juce::Colours::black);
-    setupRotarySlider(selfModSlider, selfModLabel, "Self-Mod", *this);
+    setupRotarySlider(selfModSlider, selfModLabel, "SelfMod", *this);
 
     setupRotarySlider(dryWetSlider, dryWetLabel, "Dry/Wet", *this);
-    setupRotarySlider(wetGainSlider, wetGainLabel, "Wet Gain", *this);
+    setupRotarySlider(wetGainSlider, wetGainLabel, "WetGain", *this);
     setupRotarySlider(jitterSlider, jitterLabel, "Drift", *this);
-    
-    macroAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::macro, macroSlider);
-    polarityAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(processorRef.apvts, Params::polarity, polarityBox);
 
-    pluckAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::pluck, pluckSlider);
-    inharmAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::inharm, inharmSlider);
-    inputCutoffAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::inputCutoff, inputCutoffSlider);
-    loopCutoffAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::loopCutoff, loopCutoffSlider);
-    pitchAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::pitch, pitchSlider);
-    decayAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::feedback, decaySlider);
-    crossFbAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::crossFb, crossFbSlider);
-    selfModAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::selfMod, selfModSlider);
-    dryWetAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::dryWet, dryWetSlider);
-    wetGainAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::wetGain, wetGainSlider);
-    jitterAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::jitter, jitterSlider);
+    polarityBox.addItemList({"Positive", "Negative"}, 1); addAndMakeVisible(polarityBox);
+    polarityLabel.setText("Polarity", juce::dontSendNotification); polarityLabel.setJustificationType(juce::Justification::centred); polarityLabel.setColour(juce::Label::textColourId, juce::Colours::white); addAndMakeVisible(polarityLabel);
+
+    // --- BOUTON TIROIR ---
+    drawerButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
+    drawerButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    drawerButton.onClick = [this]() {
+        isDrawerOpen = !isDrawerOpen;
+        setSize(850, isDrawerOpen ? 850 : 480);
+    };
+    addAndMakeVisible(drawerButton);
+
+    // --- MATRICE (12 destinations) ---
+    juce::StringArray names = {"Pitch", "Feed", "InCut", "LoopC", "Hβ", "Inharm", "Cross", "Self", "Drift", "DryWet", "WetGain", "Macro"};
+    juce::StringArray m1Ids = {Params::m1_pitch, Params::m1_feed, Params::m1_incut, Params::m1_loopcut, Params::m1_hbeta, Params::m1_inharm, Params::m1_cross, Params::m1_self, Params::m1_drift, Params::m1_drywet, Params::m1_wetgain, Params::m1_macro};
+    juce::StringArray m2Ids = {Params::m2_pitch, Params::m2_feed, Params::m2_incut, Params::m2_loopcut, Params::m2_hbeta, Params::m2_inharm, Params::m2_cross, Params::m2_self, Params::m2_drift, Params::m2_drywet, Params::m2_wetgain, Params::m2_macro};
+
+    for (int i = 0; i < 12; ++i) {
+        matrixLabels[i].setText(names[i], juce::dontSendNotification);
+        matrixLabels[i].setJustificationType(juce::Justification::centred);
+        matrixLabels[i].setColour(juce::Label::textColourId, juce::Colours::white);
+        addChildComponent(matrixLabels[i]);
+
+        auto setupMini = [this](juce::Slider& s) {
+            s.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+            s.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+            addChildComponent(s);
+        };
+        setupMini(m1Sliders[i]); setupMini(m2Sliders[i]);
+        
+        m1Atts[i] = std::make_unique<SliderAttachment>(processorRef.apvts, m1Ids[i], m1Sliders[i]);
+        m2Atts[i] = std::make_unique<SliderAttachment>(processorRef.apvts, m2Ids[i], m2Sliders[i]);
+    }
+
+    // --- UI LFOs ---
+    juce::StringArray syncs = {"Free", "1/1", "1/1 T", "1/1 D", "1/2", "1/2 T", "1/2 D", "1/4", "1/4 T", "1/4 D", "1/8", "1/8 T", "1/8 D", "1/16", "1/16 T", "1/16 D"};
+    juce::StringArray shapes = {"Sine", "Tri", "Saw Up", "Saw Dn", "Sqr", "Pulse", "Ramp", "Exp Dec", "Exp Rse", "S&H", "Smth Rnd", "Logistic", "Stairs", "Dbl Sine", "SOMA"};
+    
+    lfo1SyncBox.addItemList(syncs, 1); addChildComponent(lfo1SyncBox);
+    lfo1ShapeBox.addItemList(shapes, 1); addChildComponent(lfo1ShapeBox);
+    lfo2SyncBox.addItemList(syncs, 1); addChildComponent(lfo2SyncBox);
+    lfo2ShapeBox.addItemList(shapes, 1); addChildComponent(lfo2ShapeBox);
+
+    setupRotarySlider(lfo1RateSlider, lfo1RateLabel, "Rate/Ph", *this); addChildComponent(lfo1RateSlider); addChildComponent(lfo1RateLabel);
+    setupRotarySlider(lfo1ChaosSlider, lfo1ChaosLabel, "Chaos", *this); addChildComponent(lfo1ChaosSlider); addChildComponent(lfo1ChaosLabel);
+    setupRotarySlider(lfo1PwSlider, lfo1PwLabel, "PW", *this); addChildComponent(lfo1PwSlider); addChildComponent(lfo1PwLabel);
+
+    setupRotarySlider(lfo2RateSlider, lfo2RateLabel, "Rate/Ph", *this); addChildComponent(lfo2RateSlider); addChildComponent(lfo2RateLabel);
+    setupRotarySlider(lfo2ChaosSlider, lfo2ChaosLabel, "Chaos", *this); addChildComponent(lfo2ChaosSlider); addChildComponent(lfo2ChaosLabel);
+    setupRotarySlider(lfo2PwSlider, lfo2PwLabel, "PW", *this); addChildComponent(lfo2PwSlider); addChildComponent(lfo2PwLabel);
+
+    // Attachements LFO (Corrigés et stockés)
+    lfo1SyncAtt = std::make_unique<ComboAttachment>(processorRef.apvts, Params::lfo1Sync, lfo1SyncBox);
+    lfo1ShapeAtt = std::make_unique<ComboAttachment>(processorRef.apvts, Params::lfo1Shape, lfo1ShapeBox);
+    lfo1RateAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::lfo1Rate, lfo1RateSlider);
+    lfo1ChaosAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::lfo1Chaos, lfo1ChaosSlider);
+    lfo1PwAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::lfo1Pw, lfo1PwSlider);
+
+    lfo2SyncAtt = std::make_unique<ComboAttachment>(processorRef.apvts, Params::lfo2Sync, lfo2SyncBox);
+    lfo2ShapeAtt = std::make_unique<ComboAttachment>(processorRef.apvts, Params::lfo2Shape, lfo2ShapeBox);
+    lfo2RateAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::lfo2Rate, lfo2RateSlider);
+    lfo2ChaosAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::lfo2Chaos, lfo2ChaosSlider);
+    lfo2PwAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::lfo2Pw, lfo2PwSlider);
+
+    // Attachements Main
+    polarityAtt = std::make_unique<ComboAttachment>(processorRef.apvts, Params::polarity, polarityBox);
+    mainAtts[0] = std::make_unique<SliderAttachment>(processorRef.apvts, Params::pitch, pitchSlider);
+    mainAtts[1] = std::make_unique<SliderAttachment>(processorRef.apvts, Params::feedback, decaySlider);
+    mainAtts[2] = std::make_unique<SliderAttachment>(processorRef.apvts, Params::inputCutoff, inputCutoffSlider);
+    mainAtts[3] = std::make_unique<SliderAttachment>(processorRef.apvts, Params::loopCutoff, loopCutoffSlider);
+    mainAtts[4] = std::make_unique<SliderAttachment>(processorRef.apvts, Params::pluck, pluckSlider);
+    mainAtts[5] = std::make_unique<SliderAttachment>(processorRef.apvts, Params::inharm, inharmSlider);
+    mainAtts[6] = std::make_unique<SliderAttachment>(processorRef.apvts, Params::crossFb, crossFbSlider);
+    mainAtts[7] = std::make_unique<SliderAttachment>(processorRef.apvts, Params::selfMod, selfModSlider);
+    mainAtts[8] = std::make_unique<SliderAttachment>(processorRef.apvts, Params::jitter, jitterSlider);
+    mainAtts[9] = std::make_unique<SliderAttachment>(processorRef.apvts, Params::dryWet, dryWetSlider);
+    mainAtts[10] = std::make_unique<SliderAttachment>(processorRef.apvts, Params::wetGain, wetGainSlider);
+    mainAtts[11] = std::make_unique<SliderAttachment>(processorRef.apvts, Params::macro, macroSlider);
 
     setSize(850, 480);
     startTimerHz(10);
 }
 
-BlueSwanAudioProcessorEditor::~BlueSwanAudioProcessorEditor() 
-{
-    stopTimer();
-}
+BlueSwanAudioProcessorEditor::~BlueSwanAudioProcessorEditor() { stopTimer(); }
 
 void BlueSwanAudioProcessorEditor::timerCallback()
 {
     float fb = processorRef.apvts.getRawParameterValue(Params::feedback)->load();
     float crossFb = processorRef.apvts.getRawParameterValue(Params::crossFb)->load();
-
     juce::Colour finalColor = juce::Colours::black;
-
     if (fb > 0.6f && crossFb > 0.3f) {
-        if (crossFb < 0.6f) {
-            float normalized = (crossFb - 0.3f) / 0.3f;
-            finalColor = finalColor.interpolatedWith(juce::Colours::red, normalized);
-        } else {
-            finalColor = juce::Colours::red;
-        }
+        if (crossFb < 0.6f) finalColor = finalColor.interpolatedWith(juce::Colours::red, (crossFb - 0.3f) / 0.3f);
+        else finalColor = juce::Colours::red;
     }
-
     crossFbSlider.setColour(juce::Slider::rotarySliderFillColourId, finalColor);
     crossFbSlider.repaint();
 }
@@ -83,7 +126,6 @@ void BlueSwanAudioProcessorEditor::timerCallback()
 void BlueSwanAudioProcessorEditor::paint(juce::Graphics& g)
 {
     g.fillAll(juce::Colours::black);
-    
     g.setColour(juce::Colours::white);
     g.setFont(24.0f);
     g.drawFittedText("BLUE SWAN", getLocalBounds().removeFromTop(40), juce::Justification::centred, 1);
@@ -92,7 +134,6 @@ void BlueSwanAudioProcessorEditor::paint(juce::Graphics& g)
     auto area = getLocalBounds().reduced(10);
     area.removeFromTop(40);
     auto leftArea = area.removeFromLeft(150); 
-    
     g.drawVerticalLine((int)leftArea.getRight() + 10, (float)area.getY(), (float)area.getBottom());
 
     float colWidth = area.getWidth() / 4.0f;
@@ -106,14 +147,12 @@ void BlueSwanAudioProcessorEditor::resized()
     auto area = getLocalBounds().reduced(10);
     area.removeFromTop(40);
 
+    if (isDrawerOpen) area.removeFromBottom(370);
+
     auto leftArea = area.removeFromLeft(150).reduced(10);
-    
-    macroLabel.setBounds(leftArea.removeFromTop(30));
-    macroSlider.setBounds(leftArea.removeFromTop(120));
-    
+    macroLabel.setBounds(leftArea.removeFromTop(30)); macroSlider.setBounds(leftArea.removeFromTop(120));
     leftArea.removeFromTop(20);
-    polarityLabel.setBounds(leftArea.removeFromTop(20));
-    polarityBox.setBounds(leftArea.removeFromTop(30));
+    polarityLabel.setBounds(leftArea.removeFromTop(20)); polarityBox.setBounds(leftArea.removeFromTop(30));
 
     area.removeFromLeft(20); 
     
@@ -128,18 +167,76 @@ void BlueSwanAudioProcessorEditor::resized()
         s.setBounds(cell);
     };
 
+    // Col 1
     place(inputCutoffSlider, inputCutoffLabel, 0, 0);
     place(loopCutoffSlider, loopCutoffLabel, 0, 1);
     place(pitchSlider, pitchLabel, 0, 2);
-    
+    // Col 2
     place(pluckSlider, pluckLabel, 1, 0);
     place(inharmSlider, inharmLabel, 1, 1);
-
+    // Col 3
     place(decaySlider, decayLabel, 2, 0);
     place(crossFbSlider, crossFbLabel, 2, 1);
     place(selfModSlider, selfModLabel, 2, 2);
-
+    // Col 4
     place(dryWetSlider, dryWetLabel, 3, 0);
     place(wetGainSlider, wetGainLabel, 3, 1);
     place(jitterSlider, jitterLabel, 3, 2);
+
+    drawerButton.setBounds(getLocalBounds().removeFromBottom(25).reduced(0, 2));
+
+    // --- TIROIR ---
+    if (isDrawerOpen) {
+        auto drawerArea = getLocalBounds().removeFromBottom(370).reduced(10);
+        drawerArea.removeFromBottom(25);
+
+        auto matrixArea = drawerArea.removeFromTop(150);
+        int mCols = 12;
+        int mWidth = matrixArea.getWidth() / mCols;
+        int mRowHeight = matrixArea.getHeight() / 2;
+
+        for (int i = 0; i < 12; ++i) {
+            matrixLabels[i].setBounds(matrixArea.getX() + i * mWidth, matrixArea.getY() - 20, mWidth, 20);
+            matrixLabels[i].setVisible(true);
+            
+            m1Sliders[i].setBounds(matrixArea.getX() + i * mWidth, matrixArea.getY(), mWidth, mRowHeight);
+            m1Sliders[i].setVisible(true);
+            
+            m2Sliders[i].setBounds(matrixArea.getX() + i * mWidth, matrixArea.getY() + mRowHeight, mWidth, mRowHeight);
+            m2Sliders[i].setVisible(true);
+        }
+
+        drawerArea.removeFromTop(20);
+
+        auto lfo1Area = drawerArea.removeFromTop(80).reduced(0, 5);
+        lfo1SyncBox.setBounds(lfo1Area.removeFromLeft(100).reduced(5)); lfo1SyncBox.setVisible(true);
+        lfo1ShapeBox.setBounds(lfo1Area.removeFromLeft(100).reduced(5)); lfo1ShapeBox.setVisible(true);
+        
+        auto placeLfoKnob = [&](juce::Slider& s, juce::Label& l, juce::Rectangle<int> a) {
+            auto cell = a.reduced(5);
+            l.setBounds(cell.removeFromTop(15)); l.setVisible(true);
+            s.setBounds(cell); s.setVisible(true);
+        };
+        placeLfoKnob(lfo1RateSlider, lfo1RateLabel, lfo1Area.removeFromLeft(80));
+        placeLfoKnob(lfo1ChaosSlider, lfo1ChaosLabel, lfo1Area.removeFromLeft(80));
+        placeLfoKnob(lfo1PwSlider, lfo1PwLabel, lfo1Area.removeFromLeft(80));
+
+        auto lfo2Area = drawerArea.removeFromTop(80).reduced(0, 5);
+        lfo2SyncBox.setBounds(lfo2Area.removeFromLeft(100).reduced(5)); lfo2SyncBox.setVisible(true);
+        lfo2ShapeBox.setBounds(lfo2Area.removeFromLeft(100).reduced(5)); lfo2ShapeBox.setVisible(true);
+        placeLfoKnob(lfo2RateSlider, lfo2RateLabel, lfo2Area.removeFromLeft(80));
+        placeLfoKnob(lfo2ChaosSlider, lfo2ChaosLabel, lfo2Area.removeFromLeft(80));
+        placeLfoKnob(lfo2PwSlider, lfo2PwLabel, lfo2Area.removeFromLeft(80));
+
+    } else {
+        for (int i = 0; i < 12; ++i) {
+            matrixLabels[i].setVisible(false);
+            m1Sliders[i].setVisible(false);
+            m2Sliders[i].setVisible(false);
+        }
+        lfo1SyncBox.setVisible(false); lfo1ShapeBox.setVisible(false); lfo1RateSlider.setVisible(false); lfo1ChaosSlider.setVisible(false); lfo1PwSlider.setVisible(false);
+        lfo1RateLabel.setVisible(false); lfo1ChaosLabel.setVisible(false); lfo1PwLabel.setVisible(false);
+        lfo2SyncBox.setVisible(false); lfo2ShapeBox.setVisible(false); lfo2RateSlider.setVisible(false); lfo2ChaosSlider.setVisible(false); lfo2PwSlider.setVisible(false);
+        lfo2RateLabel.setVisible(false); lfo2ChaosLabel.setVisible(false); lfo2PwLabel.setVisible(false);
+    }
 }
