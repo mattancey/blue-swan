@@ -56,7 +56,6 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
     gateSmoothed.setCurrentAndTargetValue(0.0f);
     
     inharmLfoPhase = 0.0f;
-    inharmLfoValue = 0.0f;
 }
 
 void Resonator::reset()
@@ -75,7 +74,6 @@ void Resonator::reset()
     jitterState[1] = 0.0f;
     gateSmoothed.setCurrentAndTargetValue(0.0f);
     inharmLfoPhase = 0.0f;
-    inharmLfoValue = 0.0f;
 }
 
 void Resonator::setPitchSemitones(float semitones) { pitchSemitonesSmoothed.setTargetValue(juce::jlimit(-36.0f, 36.0f, semitones)); }
@@ -105,7 +103,7 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
     const int numChannels = juce::jmin((int) channels.size(), buffer.getNumChannels());
     const int numSamples = buffer.getNumSamples();
 
-    // SI L'EKS EST INACTIF : On nettoie les mémoires pour qu'il n'y ait aucun résidu
+    // Si EKS est inactif, on vide les mémoires pour ne pas avoir de résidus
     if (!isEksEnabled) {
         for (auto& ch : channels) {
             for (int j = 0; j < 24; ++j) ch.inharmAllpass[j].reset();
@@ -126,9 +124,11 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
     {
         const float pitchSt = pitchSemitonesSmoothed.getNextValue();
         const float decay = decaySmoothed.getNextValue();
-        const float pluck = pluckSmoothed.getNextValue();
-        const float inharm = inharmSmoothed.getNextValue();
-        const float inharmJit = inharmJitSmoothed.getNextValue();
+        
+        // FORCE A ZERO SI EKS INACTIF
+        const float pluck = isEksEnabled ? pluckSmoothed.getNextValue() : 0.0f;
+        const float inharm = isEksEnabled ? inharmSmoothed.getNextValue() : 0.0f;
+        const float inharmJit = isEksEnabled ? inharmJitSmoothed.getNextValue() : 0.0f;
         
         const float wetMix = dryWetSmoothed.getNextValue();
         const float drift = jitterSmoothed.getNextValue();
@@ -139,16 +139,13 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
         float delaySamples = semitonesToDelaySamples(pitchSt);
         float pluckDelayTime = delaySamples * 0.5f; 
         
-        // --- LFO SAMPLE & HOLD POUR LE JIT ---
+        // LFO SINUSOIDAL A 4 HZ
         inharmLfoPhase += lfoInc;
-        if (inharmLfoPhase >= 1.0f) {
-            inharmLfoPhase -= 1.0f;
-            // Génère une nouvelle valeur aléatoire toutes les 250 ms (4 Hz)
-            inharmLfoValue = jitterDist(jitterGen); 
-        }
+        if (inharmLfoPhase >= 1.0f) inharmLfoPhase -= 1.0f;
+        float lfo = std::sin(inharmLfoPhase * juce::MathConstants<float>::twoPi);
 
-        // Modulation brusque de l'Inharm
-        float modInharm = inharm + (inharmLfoValue * inharmJit);
+        // AMPLITUDE DU JIT = PROPORTIONNEL AU POTARD INHARM
+        float modInharm = inharm + (lfo * inharm * inharmJit);
         modInharm = juce::jlimit(-0.99f, 0.99f, modInharm);
 
         if (drift > 0.001f) {
