@@ -116,6 +116,10 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
     {
         const float pitchSt = pitchSemitonesSmoothed.getNextValue();
         const float decay = decaySmoothed.getNextValue();
+        const float pluck = isEksEnabled ? pluckSmoothed.getNextValue() : 0.0f;
+        const float inharm = isEksEnabled ? inharmSmoothed.getNextValue() : 0.0f;
+        const float inharmJit = isEksEnabled ? inharmJitSmoothed.getNextValue() : 0.0f;
+        
         const float wetMix = dryWetSmoothed.getNextValue();
         const float drift = jitterSmoothed.getNextValue();
         const float crossFB = crossFbSmoothed.getNextValue();
@@ -125,34 +129,13 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
         float delaySamples = semitonesToDelaySamples(pitchSt);
         float pluckDelayTime = delaySamples * 0.5f; 
         
-        // --- GESTION DU BYPASS EKS ---
-        float pluck = 0.0f;
-        float modInharm = 0.0f;
-        float inharmJit = 0.0f;
-        
-        if (isEksEnabled) {
-            // Si actif, on lit les paramètres
-            pluck = pluckSmoothed.getNextValue();
-            float inharm = inharmSmoothed.getNextValue();
-            inharmJit = inharmJitSmoothed.getNextValue();
-            
-            // LFO SINUSOIDAL UNIPOLAIRE (0 à 1)
-            inharmLfoPhase += lfoInc;
-            if (inharmLfoPhase >= 1.0f) inharmLfoPhase -= 1.0f;
-            float lfo_val = (std::sin(inharmLfoPhase * juce::MathConstants<float>::twoPi) + 1.0f) * 0.5f;
+        // LFO Sinusoidal Unipolaire (0 à 1) pour le Jit
+        inharmLfoPhase += lfoInc;
+        if (inharmLfoPhase >= 1.0f) inharmLfoPhase -= 1.0f;
+        float lfo_val = (std::sin(inharmLfoPhase * juce::MathConstants<float>::twoPi) + 1.0f) * 0.5f;
 
-            // Modulation : Inharm descend de sa valeur jusqu'à 0 (si Jit=1)
-            modInharm = inharm - (inharm * inharmJit) + (lfo_val * inharm * inharmJit);
-            modInharm = juce::jlimit(0.0f, 0.99f, modInharm); // Sécurité
-        } else {
-            // Si inactif, on force tout à 0 et on remet les phases à zéro
-            inharmLfoPhase = 0.0f;
-            // On vide les buffers du filtre Allpass pour qu'il n'y ait plus de son dedans
-            for (int ch = 0; ch < numChannels; ++ch) {
-                for (int j = 0; j < 24; ++j) channels[(size_t) ch].inharmAllpass[j].reset();
-                channels[(size_t) ch].pluckDelay.reset();
-            }
-        }
+        float modInharm = inharm - (inharm * inharmJit) + (lfo_val * inharm * inharmJit);
+        modInharm = juce::jlimit(0.0f, 0.99f, modInharm);
 
         if (drift > 0.001f) {
             for (int ch = 0; ch < numChannels; ++ch) {
@@ -185,13 +168,26 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
         }
         float currentGate = gateSmoothed.getNextValue();
 
+        // --- LECTURE DE LA BOUCLE ---
         for (int ch = 0; ch < numChannels; ++ch)
         {
             auto& state = channels[(size_t) ch];
             state.delayLine.setDelay(delaySamples);
             float delayed = state.delayLine.popSample(0);
 
-            // Application du filtre Allpass (seulement si EKS est actif)
+            // 1. Hβ (Pluck) DÉPLACÉ ICI : On sculpte le son dans la boucle
+            if (isEksEnabled) {
+                state.pluckDelay.setDelay(pluckDelayTime);
+                float pluckDelayed = state.pluckDelay.popSample(0);
+                state.pluckDelay.pushSample(0, delayed); // On alimente le peigne avec le signal de la boucle
+                
+                // Filtre à peigne : on soustrait une version retardée pour créer des creux spectraux
+                float comb = delayed - (pluckDelayed * pluck);
+                // Compensation de volume pour ne pas perdre d'énergie
+                delayed = comb * (1.0f / (1.0f + pluck * 0.5f));
+            }
+
+            // 2. Inharm
             if (isEksEnabled) {
                 for (int j = 0; j < 24; ++j) {
                     state.inharmAllpass[j].setCoeff(modInharm);
@@ -199,6 +195,7 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
                 }
             }
 
+            // 3. Filtre de boucle et Decay
             float loopFiltered = state.loopFilter.process(delayed);
             loopFiltered = state.dcBlocker.process(loopFiltered);
             loopFiltered *= decay;
@@ -206,22 +203,12 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
             loopOutputs[ch] = loopFiltered;
         }
 
+        // --- ÉCRITURE DANS LA BOUCLE ---
         for (int ch = 0; ch < numChannels; ++ch)
         {
             auto& state = channels[(size_t) ch];
+            // Le signal Dry n'est plus filtré par le Hβ, il va directement dans le mix
             float dry = buffer.getReadPointer(ch)[i];
-
-            float pluckFiltered = dry;
-            // Application du Pluck (seulement si EKS est actif)
-            if (isEksEnabled) {
-                state.pluckDelay.setDelay(pluckDelayTime);
-                float pluckDelayed = state.pluckDelay.popSample(0);
-                
-                float comb = dry - pluckDelayed;
-                pluckFiltered = dry * (1.0f - pluck * 0.8f) + comb * (pluck * 0.8f);
-                
-                state.pluckDelay.pushSample(0, dry);
-            }
 
             float crossFeedbackSignal = 0.0f;
             if (numChannels == 2) {
@@ -229,7 +216,7 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
                 crossFeedbackSignal = loopOutputs[otherCh] * crossFB;
             }
 
-            const float inputFiltered = state.inputFilter.processSample(0, pluckFiltered);
+            const float inputFiltered = state.inputFilter.processSample(0, dry);
             float toWrite = inputFiltered + (loopOutputs[ch] * polarityMultiplier) + crossFeedbackSignal;
             toWrite = std::tanh(toWrite);
 
