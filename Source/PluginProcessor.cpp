@@ -24,7 +24,7 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     double bpm = 120.0;
     if (auto* playHead = getPlayHead()) if (auto pos = playHead->getPosition()) if (auto bpmOpt = pos->getBpm()) bpm = *bpmOpt;
 
-    ModParams p{}; // Initialisation à zéro pour éviter les NaN
+    ModParams p{}; 
     auto get = [&](const juce::String& id) { return apvts.getRawParameterValue(id)->load(); };
 
     p.pitch = get(Params::pitch); p.feedback = get(Params::feedback); p.pluck = get(Params::pluck); p.inharm = get(Params::inharm);
@@ -48,9 +48,9 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     p.m1_wetgain = get(Params::m1_wetgain); p.m2_wetgain = get(Params::m2_wetgain);
     p.m1_macro = get(Params::m1_macro); p.m2_macro = get(Params::m2_macro);
     
-    // Ajout des 4 paramètres manquants qui faisaient crasher Ableton
-    p.m1_lfo1 = get(Params::m1_lfo1); p.m2_lfo1 = get(Params::m2_lfo1);
-    p.m1_lfo2 = get(Params::m1_lfo2); p.m2_lfo2 = get(Params::m2_lfo2);
+    // Croisements uniquement
+    p.m1_lfo2 = get(Params::m1_lfo2);
+    p.m2_lfo1 = get(Params::m2_lfo1);
 
     bool isNeg = get(Params::polarity) > 0.5f;
     resonator.process(buffer, p, bpm, isNeg);
