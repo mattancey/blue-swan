@@ -25,8 +25,8 @@ private:
     
     juce::TextButton drawerButton { "MODULATION" };
 
-    // Matrice (14 colonnes, mais 12 sliders dans la ligne 1, 12 dans la ligne 2)
-    juce::Slider m1Sliders[12], m2Sliders[12];
+    // Matrice (14 colonnes pour tout faire tenir)
+    juce::Slider m1Sliders[14], m2Sliders[14];
     juce::Label matrixLabels[14];
     juce::Label lfo1NameLabel, lfo2NameLabel;
     
@@ -39,7 +39,7 @@ private:
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     using ComboAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
     
-    std::unique_ptr<SliderAttachment> mainAtts[12], m1Atts[12], m2Atts[12];
+    std::unique_ptr<SliderAttachment> mainAtts[12], m1Atts[14], m2Atts[14]; // Taille 14 ici
     std::unique_ptr<ComboAttachment> polarityAtt;
     std::unique_ptr<ComboAttachment> lfo1SyncAtt, lfo1ShapeAtt, lfo2SyncAtt, lfo2ShapeAtt;
     std::unique_ptr<SliderAttachment> lfo1RateAtt, lfo1ChaosAtt, lfo1PwAtt, lfo2RateAtt, lfo2ChaosAtt, lfo2PwAtt;
