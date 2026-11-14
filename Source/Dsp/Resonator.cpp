@@ -103,14 +103,6 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
     const int numChannels = juce::jmin((int) channels.size(), buffer.getNumChannels());
     const int numSamples = buffer.getNumSamples();
 
-    // Si EKS est inactif, on vide les mémoires pour ne pas avoir de résidus
-    if (!isEksEnabled) {
-        for (auto& ch : channels) {
-            for (int j = 0; j < 24; ++j) ch.inharmAllpass[j].reset();
-            ch.pluckDelay.reset();
-        }
-    }
-
     for (int ch = 0; ch < numChannels; ++ch)
     {
         channels[(size_t) ch].inputFilter.setCutoffFrequency(currentInputCutoff);
@@ -124,12 +116,6 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
     {
         const float pitchSt = pitchSemitonesSmoothed.getNextValue();
         const float decay = decaySmoothed.getNextValue();
-        
-        // FORCE A ZERO SI EKS INACTIF
-        const float pluck = isEksEnabled ? pluckSmoothed.getNextValue() : 0.0f;
-        const float inharm = isEksEnabled ? inharmSmoothed.getNextValue() : 0.0f;
-        const float inharmJit = isEksEnabled ? inharmJitSmoothed.getNextValue() : 0.0f;
-        
         const float wetMix = dryWetSmoothed.getNextValue();
         const float drift = jitterSmoothed.getNextValue();
         const float crossFB = crossFbSmoothed.getNextValue();
@@ -139,14 +125,34 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
         float delaySamples = semitonesToDelaySamples(pitchSt);
         float pluckDelayTime = delaySamples * 0.5f; 
         
-        // LFO SINUSOIDAL A 4 HZ
-        inharmLfoPhase += lfoInc;
-        if (inharmLfoPhase >= 1.0f) inharmLfoPhase -= 1.0f;
-        float lfo = std::sin(inharmLfoPhase * juce::MathConstants<float>::twoPi);
+        // --- GESTION DU BYPASS EKS ---
+        float pluck = 0.0f;
+        float modInharm = 0.0f;
+        float inharmJit = 0.0f;
+        
+        if (isEksEnabled) {
+            // Si actif, on lit les paramètres
+            pluck = pluckSmoothed.getNextValue();
+            float inharm = inharmSmoothed.getNextValue();
+            inharmJit = inharmJitSmoothed.getNextValue();
+            
+            // LFO SINUSOIDAL UNIPOLAIRE (0 à 1)
+            inharmLfoPhase += lfoInc;
+            if (inharmLfoPhase >= 1.0f) inharmLfoPhase -= 1.0f;
+            float lfo_val = (std::sin(inharmLfoPhase * juce::MathConstants<float>::twoPi) + 1.0f) * 0.5f;
 
-        // AMPLITUDE DU JIT = PROPORTIONNEL AU POTARD INHARM
-        float modInharm = inharm + (lfo * inharm * inharmJit);
-        modInharm = juce::jlimit(-0.99f, 0.99f, modInharm);
+            // Modulation : Inharm descend de sa valeur jusqu'à 0 (si Jit=1)
+            modInharm = inharm - (inharm * inharmJit) + (lfo_val * inharm * inharmJit);
+            modInharm = juce::jlimit(0.0f, 0.99f, modInharm); // Sécurité
+        } else {
+            // Si inactif, on force tout à 0 et on remet les phases à zéro
+            inharmLfoPhase = 0.0f;
+            // On vide les buffers du filtre Allpass pour qu'il n'y ait plus de son dedans
+            for (int ch = 0; ch < numChannels; ++ch) {
+                for (int j = 0; j < 24; ++j) channels[(size_t) ch].inharmAllpass[j].reset();
+                channels[(size_t) ch].pluckDelay.reset();
+            }
+        }
 
         if (drift > 0.001f) {
             for (int ch = 0; ch < numChannels; ++ch) {
@@ -185,6 +191,7 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
             state.delayLine.setDelay(delaySamples);
             float delayed = state.delayLine.popSample(0);
 
+            // Application du filtre Allpass (seulement si EKS est actif)
             if (isEksEnabled) {
                 for (int j = 0; j < 24; ++j) {
                     state.inharmAllpass[j].setCoeff(modInharm);
@@ -205,6 +212,7 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
             float dry = buffer.getReadPointer(ch)[i];
 
             float pluckFiltered = dry;
+            // Application du Pluck (seulement si EKS est actif)
             if (isEksEnabled) {
                 state.pluckDelay.setDelay(pluckDelayTime);
                 float pluckDelayed = state.pluckDelay.popSample(0);
