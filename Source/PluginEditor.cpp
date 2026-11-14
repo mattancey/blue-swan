@@ -20,13 +20,8 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     polarityLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     addAndMakeVisible(polarityLabel);
 
-    eksEnableButton.setButtonText("EKS ACTIVE");
-    eksEnableButton.setColour(juce::ToggleButton::textColourId, juce::Colours::cyan);
-    addAndMakeVisible(eksEnableButton);
-
     setupRotarySlider(pluckSlider, pluckLabel, juce::String::fromUTF8("H\u03B2"), *this);
     setupRotarySlider(inharmSlider, inharmLabel, "Inharm", *this);
-    setupRotarySlider(inharmJitSlider, inharmJitLabel, "Jit", *this);
     
     setupRotarySlider(inputCutoffSlider, inputCutoffLabel, "In Cutoff", *this);
     setupRotarySlider(loopCutoffSlider, loopCutoffLabel, "Loop Cutoff", *this);
@@ -43,11 +38,9 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     
     macroAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::macro, macroSlider);
     polarityAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(processorRef.apvts, Params::polarity, polarityBox);
-    eksEnableAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processorRef.apvts, Params::eksEnable, eksEnableButton);
 
     pluckAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::pluck, pluckSlider);
     inharmAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::inharm, inharmSlider);
-    inharmJitAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::inharmJit, inharmJitSlider);
     inputCutoffAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::inputCutoff, inputCutoffSlider);
     loopCutoffAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::loopCutoff, loopCutoffSlider);
     pitchAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::pitch, pitchSlider);
@@ -69,25 +62,11 @@ BlueSwanAudioProcessorEditor::~BlueSwanAudioProcessorEditor()
 
 void BlueSwanAudioProcessorEditor::timerCallback()
 {
-    bool eksActive = processorRef.apvts.getRawParameterValue(Params::eksEnable)->load() > 0.5f;
-    auto setActive = [](juce::Component& c, bool active) {
-        c.setAlpha(active ? 1.0f : 0.3f);
-        c.setEnabled(active);
-    };
-
-    setActive(pluckSlider, eksActive);
-    setActive(pluckLabel, eksActive);
-    setActive(inharmSlider, eksActive);
-    setActive(inharmLabel, eksActive);
-    setActive(inharmJitSlider, eksActive);
-    setActive(inharmJitLabel, eksActive);
-
     float fb = processorRef.apvts.getRawParameterValue(Params::feedback)->load();
     float crossFb = processorRef.apvts.getRawParameterValue(Params::crossFb)->load();
 
     juce::Colour finalColor = juce::Colours::black;
 
-    // GESTION COULEUR CROSS FB (SANS CONDITION DE POLARITE)
     if (fb > 0.6f && crossFb > 0.3f) {
         if (crossFb < 0.6f) {
             float normalized = (crossFb - 0.3f) / 0.3f;
@@ -153,19 +132,8 @@ void BlueSwanAudioProcessorEditor::resized()
     place(loopCutoffSlider, loopCutoffLabel, 0, 1);
     place(pitchSlider, pitchLabel, 0, 2);
     
-    auto eksCell = juce::Rectangle<int>(area.getX() + colWidth, area.getY(), colWidth, rowHeight).reduced(10);
-    eksEnableButton.setBounds(eksCell.removeFromTop(30));
-    
-    place(pluckSlider, pluckLabel, 1, 1);
-    
-    auto inharmRow = juce::Rectangle<int>(area.getX() + colWidth, area.getY() + 2 * rowHeight, colWidth, rowHeight).reduced(10);
-    auto jitArea = inharmRow.removeFromRight(static_cast<int>(inharmRow.getWidth() * 0.35f));
-    
-    inharmJitLabel.setBounds(jitArea.removeFromTop(20));
-    inharmJitSlider.setBounds(jitArea);
-    
-    inharmLabel.setBounds(inharmRow.removeFromTop(20));
-    inharmSlider.setBounds(inharmRow);
+    place(pluckSlider, pluckLabel, 1, 0);
+    place(inharmSlider, inharmLabel, 1, 1);
 
     place(decaySlider, decayLabel, 2, 0);
     place(crossFbSlider, crossFbLabel, 2, 1);
