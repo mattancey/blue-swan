@@ -39,8 +39,7 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
         ch.loopFilter.reset();
         ch.dcBlocker.reset();
         ch.modFilter.setCutoff(20.0f, (float) sampleRate);
-        for(int i=0; i<16; ++i) ch.inharmAllpass[i].reset();
-        ch.inharmJitState = 0.0f;
+        for(int i=0; i<24; ++i) ch.inharmAllpass[i].reset();
     }
 
     pitchSemitonesSmoothed.reset(sampleRate, 0.05);
@@ -55,6 +54,8 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
     wetGainSmoothed.reset(sampleRate, 0.02);
     gateSmoothed.reset(sampleRate, 2.0);
     gateSmoothed.setCurrentAndTargetValue(0.0f);
+    
+    inharmLfoPhase = 0.0f;
 }
 
 void Resonator::reset()
@@ -67,12 +68,12 @@ void Resonator::reset()
         ch.loopFilter.reset();
         ch.dcBlocker.reset();
         ch.modFilter.reset();
-        for(int i=0; i<16; ++i) ch.inharmAllpass[i].reset();
-        ch.inharmJitState = 0.0f;
+        for(int i=0; i<24; ++i) ch.inharmAllpass[i].reset();
     }
     jitterState[0] = 0.0f;
     jitterState[1] = 0.0f;
     gateSmoothed.setCurrentAndTargetValue(0.0f);
+    inharmLfoPhase = 0.0f;
 }
 
 void Resonator::setPitchSemitones(float semitones) { pitchSemitonesSmoothed.setTargetValue(juce::jlimit(-36.0f, 36.0f, semitones)); }
@@ -109,6 +110,9 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
     }
 
     float loopOutputs[2] = { 0.0f, 0.0f };
+    
+    // Fréquence du LFO pour le Jit : 4 Hz
+    const float lfoInc = 4.0f / (float)currentSampleRate; 
 
     for (int i = 0; i < numSamples; ++i)
     {
@@ -127,6 +131,14 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
         float delaySamples = semitonesToDelaySamples(pitchSt);
         float pluckDelayTime = delaySamples * 0.5f; 
         
+        // --- LFO POUR LE JIT (4 Hz) ---
+        float lfoVal = std::sin(inharmLfoPhase * juce::MathConstants<float>::twoPi);
+        inharmLfoPhase += lfoInc;
+        if (inharmLfoPhase >= 1.0f) inharmLfoPhase -= 1.0f;
+
+        // Modulation de l'inharmonicité UNIQUEMENT
+        float modInharm = inharm + (lfoVal * inharmJit * 0.5f);
+
         if (drift > 0.001f) {
             for (int ch = 0; ch < numChannels; ++ch) {
                 float noise = jitterDist(jitterGen);
@@ -166,22 +178,10 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
             float delayed = state.delayLine.popSample(0);
 
             if (isEksEnabled) {
-                float a = inharm * 0.99f;
+                // Sécurité contre l'explosion, et utilisation de la valeur modulée
+                float a = juce::jlimit(-0.99f, 0.99f, modInharm * 0.99f);
                 
-                if (inharmJit > 0.001f) {
-                    // Marche aléatoire LENTE pour créer un effet de "flottement" audible
-                    float noise = jitterDist(jitterGen);
-                    // 0.00005f crée une modulation très lente (quelques Hz)
-                    state.inharmJitState += 0.00005f * (noise - state.inharmJitState); 
-                    
-                    // L'intensité est forte (0.8f) pour que ce soit très audible
-                    a += state.inharmJitState * inharmJit * 0.8f; 
-                }
-                
-                // Sécurité pour ne pas exploser le filtre
-                a = juce::jlimit(-0.99f, 0.99f, a);
-                
-                for (int j = 0; j < 16; ++j) {
+                for (int j = 0; j < 24; ++j) { // Cascade de 24
                     state.inharmAllpass[j].setCoeff(a);
                     delayed = state.inharmAllpass[j].process(delayed);
                 }
