@@ -82,7 +82,7 @@ private:
         OnePoleLP loopFilter;
         DCBlocker dcBlocker;
         OnePoleLP modFilter;
-        Allpass inharmAllpass[24]; // Changé de 16 à 24
+        Allpass inharmAllpass[24];
     };
 
     std::vector<ChannelState> channels;
@@ -102,7 +102,10 @@ private:
     juce::SmoothedValue<float> gateSmoothed;
     
     float polarityMultiplier = 1.0f;
-    float inharmLfoPhase = 0.0f; // LFO pour le Jit
+    
+    // Variables pour le LFO Sample & Hold (Jitter)
+    float inharmLfoPhase = 0.0f;
+    float inharmLfoValue = 0.0f; 
 
     std::mt19937 jitterGen;
     std::uniform_real_distribution<float> jitterDist { -1.0f, 1.0f };
