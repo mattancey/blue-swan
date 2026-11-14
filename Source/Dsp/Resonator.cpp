@@ -110,8 +110,6 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
     }
 
     float loopOutputs[2] = { 0.0f, 0.0f };
-    
-    // Fréquence du LFO pour le Jit : 4 Hz
     const float lfoInc = 4.0f / (float)currentSampleRate; 
 
     for (int i = 0; i < numSamples; ++i)
@@ -131,13 +129,16 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
         float delaySamples = semitonesToDelaySamples(pitchSt);
         float pluckDelayTime = delaySamples * 0.5f; 
         
-        // --- LFO POUR LE JIT (4 Hz) ---
+        // LFO pour secouer l'Inharm à 4 Hz
         float lfoVal = std::sin(inharmLfoPhase * juce::MathConstants<float>::twoPi);
         inharmLfoPhase += lfoInc;
         if (inharmLfoPhase >= 1.0f) inharmLfoPhase -= 1.0f;
 
-        // Modulation de l'inharmonicité UNIQUEMENT
-        float modInharm = inharm + (lfoVal * inharmJit * 0.5f);
+        // Modulation de l'inharmonicité
+        float modInharm = inharm + (lfoVal * inharmJit);
+        
+        // SÉCURITÉ ABSOLUE : On bloque à 0.9 pour ne pas exploser
+        modInharm = juce::jlimit(-0.9f, 0.9f, modInharm);
 
         if (drift > 0.001f) {
             for (int ch = 0; ch < numChannels; ++ch) {
@@ -170,7 +171,6 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
         }
         float currentGate = gateSmoothed.getNextValue();
 
-        // --- Lecture de la boucle ---
         for (int ch = 0; ch < numChannels; ++ch)
         {
             auto& state = channels[(size_t) ch];
@@ -178,11 +178,8 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
             float delayed = state.delayLine.popSample(0);
 
             if (isEksEnabled) {
-                // Sécurité contre l'explosion, et utilisation de la valeur modulée
-                float a = juce::jlimit(-0.99f, 0.99f, modInharm * 0.99f);
-                
-                for (int j = 0; j < 24; ++j) { // Cascade de 24
-                    state.inharmAllpass[j].setCoeff(a);
+                for (int j = 0; j < 24; ++j) {
+                    state.inharmAllpass[j].setCoeff(modInharm);
                     delayed = state.inharmAllpass[j].process(delayed);
                 }
             }
@@ -194,7 +191,6 @@ void Resonator::process(juce::AudioBuffer<float>& buffer)
             loopOutputs[ch] = loopFiltered;
         }
 
-        // --- Écriture dans la boucle ---
         for (int ch = 0; ch < numChannels; ++ch)
         {
             auto& state = channels[(size_t) ch];
