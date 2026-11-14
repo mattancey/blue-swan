@@ -32,7 +32,7 @@ namespace Params
     inline constexpr auto lfo2Chaos = "lfo2Chaos";
     inline constexpr auto lfo2Pw = "lfo2Pw";
 
-    // Matrice (12 destinations x 2 LFOs)
+    // Matrice (14 destinations x 2 LFOs)
     inline constexpr auto m1_pitch = "m1_pitch"; inline constexpr auto m2_pitch = "m2_pitch";
     inline constexpr auto m1_feed = "m1_feed";   inline constexpr auto m2_feed = "m2_feed";
     inline constexpr auto m1_incut = "m1_incut"; inline constexpr auto m2_incut = "m2_incut";
@@ -45,12 +45,13 @@ namespace Params
     inline constexpr auto m1_drywet = "m1_drywet"; inline constexpr auto m2_drywet = "m2_drywet";
     inline constexpr auto m1_wetgain = "m1_wetgain"; inline constexpr auto m2_wetgain = "m2_wetgain";
     inline constexpr auto m1_macro = "m1_macro"; inline constexpr auto m2_macro = "m2_macro";
+    inline constexpr auto m1_lfo1 = "m1_lfo1"; inline constexpr auto m2_lfo1 = "m2_lfo1"; // Nouveau
+    inline constexpr auto m1_lfo2 = "m1_lfo2"; inline constexpr auto m2_lfo2 = "m2_lfo2"; // Nouveau
 
     inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     {
         juce::AudioProcessorValueTreeState::ParameterLayout layout;
         
-        // --- Paramètres de base ---
         layout.add(std::make_unique<juce::AudioParameterFloat>(pitch, "Pitch", juce::NormalisableRange<float>(-36.0f, 36.0f, 0.01f), 0.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>(feedback, "Feedback", juce::NormalisableRange<float>(0.0f, 0.99f, 0.001f), 0.85f));
         layout.add(std::make_unique<juce::AudioParameterFloat>(pluck, "H\u03B2", juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.0f));
@@ -65,7 +66,6 @@ namespace Params
         layout.add(std::make_unique<juce::AudioParameterChoice>(polarity, "Polarity", juce::StringArray{"Positive", "Negative"}, 0));
         layout.add(std::make_unique<juce::AudioParameterFloat>(wetGain, "Wet Gain", juce::NormalisableRange<float>(0.0f, 2.0f, 0.01f), 1.0f));
 
-        // --- LFO 1 ---
         juce::StringArray syncOpts = {"Free", "1/1", "1/1 T", "1/1 D", "1/2", "1/2 T", "1/2 D", "1/4", "1/4 T", "1/4 D", "1/8", "1/8 T", "1/8 D", "1/16", "1/16 T", "1/16 D"};
         juce::StringArray shapeOpts = {"Sine", "Tri", "Saw Up", "Saw Dn", "Sqr", "Pulse", "Ramp", "Exp Dec", "Exp Rse", "S&H", "Smth Rnd", "Logistic", "Stairs", "Dbl Sine", "SOMA"};
         
@@ -75,14 +75,12 @@ namespace Params
         layout.add(std::make_unique<juce::AudioParameterFloat>(lfo1Chaos, "LFO1 Chaos", juce::NormalisableRange<float>(0.1f, 4.0f, 0.01f), 3.6f));
         layout.add(std::make_unique<juce::AudioParameterFloat>(lfo1Pw, "LFO1 PW", juce::NormalisableRange<float>(0.05f, 0.95f, 0.01f), 0.5f));
 
-        // --- LFO 2 ---
         layout.add(std::make_unique<juce::AudioParameterChoice>(lfo2Sync, "LFO2 Sync", syncOpts, 0));
         layout.add(std::make_unique<juce::AudioParameterFloat>(lfo2Rate, "LFO2 Rate", juce::NormalisableRange<float>(0.01f, 100.0f, 0.01f, 0.3f), 1.0f));
         layout.add(std::make_unique<juce::AudioParameterChoice>(lfo2Shape, "LFO2 Shape", shapeOpts, 0));
         layout.add(std::make_unique<juce::AudioParameterFloat>(lfo2Chaos, "LFO2 Chaos", juce::NormalisableRange<float>(0.1f, 4.0f, 0.01f), 3.6f));
         layout.add(std::make_unique<juce::AudioParameterFloat>(lfo2Pw, "LFO2 PW", juce::NormalisableRange<float>(0.05f, 0.95f, 0.01f), 0.5f));
 
-        // --- Matrice (Depth -100% à +100%) ---
         auto addDepth = [&](const juce::String& id, const juce::String& name) {
             layout.add(std::make_unique<juce::AudioParameterFloat>(id, name, juce::NormalisableRange<float>(-1.0f, 1.0f, 0.001f), 0.0f));
         };
@@ -99,6 +97,8 @@ namespace Params
         addDepth(m1_drywet, "M1 DryWet"); addDepth(m2_drywet, "M2 DryWet");
         addDepth(m1_wetgain, "M1 WetGain"); addDepth(m2_wetgain, "M2 WetGain");
         addDepth(m1_macro, "M1 Macro"); addDepth(m2_macro, "M2 Macro");
+        addDepth(m1_lfo1, "M1 LFO1"); addDepth(m2_lfo1, "M2 LFO1");
+        addDepth(m1_lfo2, "M1 LFO2"); addDepth(m2_lfo2, "M2 LFO2");
 
         return layout;
     }
