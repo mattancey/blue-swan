@@ -5,22 +5,15 @@
 BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcessor& p)
     : AudioProcessorEditor(&p), processorRef(p)
 {
-    // --- PARAMÈTRES DE BASE (Noms abrégés) ---
-    setupRotarySlider(macroSlider, macroLabel, "MACRO", *this);
-    macroLabel.setColour(juce::Label::textColourId, juce::Colours::cyan);
-    
+    setupRotarySlider(macroSlider, macroLabel, "MACRO", *this); macroLabel.setColour(juce::Label::textColourId, juce::Colours::cyan);
     setupRotarySlider(inputCutoffSlider, inputCutoffLabel, "In Cut", *this);
     setupRotarySlider(loopCutoffSlider, loopCutoffLabel, "Loop Cut", *this);
     setupRotarySlider(pitchSlider, pitchLabel, "Pitch", *this);
-    
     setupRotarySlider(pluckSlider, pluckLabel, juce::String::fromUTF8("H\u03B2"), *this);
     setupRotarySlider(inharmSlider, inharmLabel, "Inharm", *this);
-    
     setupRotarySlider(decaySlider, decayLabel, "Feedbk", *this);
-    setupRotarySlider(crossFbSlider, crossFbLabel, "CrossFB", *this);
-    crossFbSlider.setColour(juce::Slider::rotarySliderFillColourId, juce::Colours::black);
+    setupRotarySlider(crossFbSlider, crossFbLabel, "CrossFB", *this); crossFbSlider.setColour(juce::Slider::rotarySliderFillColourId, juce::Colours::black);
     setupRotarySlider(selfModSlider, selfModLabel, "SelfMod", *this);
-
     setupRotarySlider(dryWetSlider, dryWetLabel, "Dry/Wet", *this);
     setupRotarySlider(wetGainSlider, wetGainLabel, "WetGain", *this);
     setupRotarySlider(jitterSlider, jitterLabel, "Drift", *this);
@@ -28,21 +21,21 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     polarityBox.addItemList({"Positive", "Negative"}, 1); addAndMakeVisible(polarityBox);
     polarityLabel.setText("Polarity", juce::dontSendNotification); polarityLabel.setJustificationType(juce::Justification::centred); polarityLabel.setColour(juce::Label::textColourId, juce::Colours::white); addAndMakeVisible(polarityLabel);
 
-    // --- BOUTON TIROIR ---
     drawerButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
     drawerButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     drawerButton.onClick = [this]() {
         isDrawerOpen = !isDrawerOpen;
-        setSize(850, isDrawerOpen ? 850 : 480);
+        int targetHeight = isDrawerOpen ? 850 : 480;
+        animator.animateComponent(this, getBounds().withHeight(targetHeight), 1.0, 0, 1.0); // Animation de 1s
     };
     addAndMakeVisible(drawerButton);
 
-    // --- MATRICE (12 destinations) ---
-    juce::StringArray names = {"Pitch", "Feed", "InCut", "LoopC", "Hβ", "Inharm", "Cross", "Self", "Drift", "DryWet", "WetGain", "Macro"};
-    juce::StringArray m1Ids = {Params::m1_pitch, Params::m1_feed, Params::m1_incut, Params::m1_loopcut, Params::m1_hbeta, Params::m1_inharm, Params::m1_cross, Params::m1_self, Params::m1_drift, Params::m1_drywet, Params::m1_wetgain, Params::m1_macro};
-    juce::StringArray m2Ids = {Params::m2_pitch, Params::m2_feed, Params::m2_incut, Params::m2_loopcut, Params::m2_hbeta, Params::m2_inharm, Params::m2_cross, Params::m2_self, Params::m2_drift, Params::m2_drywet, Params::m2_wetgain, Params::m2_macro};
+    // Matrice (14 colonnes)
+    juce::StringArray names = {"Pitch", "Feed", "InCut", "LoopC", "Hβ", "Inharm", "Cross", "Self", "Drift", "DryWet", "WetGain", "Macro", "LFO1", "LFO2"};
+    juce::StringArray m1Ids = {Params::m1_pitch, Params::m1_feed, Params::m1_incut, Params::m1_loopcut, Params::m1_hbeta, Params::m1_inharm, Params::m1_cross, Params::m1_self, Params::m1_drift, Params::m1_drywet, Params::m1_wetgain, Params::m1_macro, Params::m1_lfo1, Params::m1_lfo2};
+    juce::StringArray m2Ids = {Params::m2_pitch, Params::m2_feed, Params::m2_incut, Params::m2_loopcut, Params::m2_hbeta, Params::m2_inharm, Params::m2_cross, Params::m2_self, Params::m2_drift, Params::m2_drywet, Params::m2_wetgain, Params::m2_macro, Params::m2_lfo1, Params::m2_lfo2};
 
-    for (int i = 0; i < 12; ++i) {
+    for (int i = 0; i < 14; ++i) {
         matrixLabels[i].setText(names[i], juce::dontSendNotification);
         matrixLabels[i].setJustificationType(juce::Justification::centred);
         matrixLabels[i].setColour(juce::Label::textColourId, juce::Colours::white);
@@ -59,7 +52,10 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
         m2Atts[i] = std::make_unique<SliderAttachment>(processorRef.apvts, m2Ids[i], m2Sliders[i]);
     }
 
-    // --- UI LFOs ---
+    lfo1NameLabel.setText("LFO\n1", juce::dontSendNotification); lfo1NameLabel.setJustificationType(juce::Justification::centred); lfo1NameLabel.setColour(juce::Label::textColourId, juce::Colours::cyan); lfo1NameLabel.setFont(14.0f); addChildComponent(lfo1NameLabel);
+    lfo2NameLabel.setText("LFO\n2", juce::dontSendNotification); lfo2NameLabel.setJustificationType(juce::Justification::centred); lfo2NameLabel.setColour(juce::Label::textColourId, juce::Colours::cyan); lfo2NameLabel.setFont(14.0f); addChildComponent(lfo2NameLabel);
+
+    // LFOs UI
     juce::StringArray syncs = {"Free", "1/1", "1/1 T", "1/1 D", "1/2", "1/2 T", "1/2 D", "1/4", "1/4 T", "1/4 D", "1/8", "1/8 T", "1/8 D", "1/16", "1/16 T", "1/16 D"};
     juce::StringArray shapes = {"Sine", "Tri", "Saw Up", "Saw Dn", "Sqr", "Pulse", "Ramp", "Exp Dec", "Exp Rse", "S&H", "Smth Rnd", "Logistic", "Stairs", "Dbl Sine", "SOMA"};
     
@@ -71,25 +67,21 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     setupRotarySlider(lfo1RateSlider, lfo1RateLabel, "Rate/Ph", *this); addChildComponent(lfo1RateSlider); addChildComponent(lfo1RateLabel);
     setupRotarySlider(lfo1ChaosSlider, lfo1ChaosLabel, "Chaos", *this); addChildComponent(lfo1ChaosSlider); addChildComponent(lfo1ChaosLabel);
     setupRotarySlider(lfo1PwSlider, lfo1PwLabel, "PW", *this); addChildComponent(lfo1PwSlider); addChildComponent(lfo1PwLabel);
-
     setupRotarySlider(lfo2RateSlider, lfo2RateLabel, "Rate/Ph", *this); addChildComponent(lfo2RateSlider); addChildComponent(lfo2RateLabel);
     setupRotarySlider(lfo2ChaosSlider, lfo2ChaosLabel, "Chaos", *this); addChildComponent(lfo2ChaosSlider); addChildComponent(lfo2ChaosLabel);
     setupRotarySlider(lfo2PwSlider, lfo2PwLabel, "PW", *this); addChildComponent(lfo2PwSlider); addChildComponent(lfo2PwLabel);
 
-    // Attachements LFO (Corrigés et stockés)
     lfo1SyncAtt = std::make_unique<ComboAttachment>(processorRef.apvts, Params::lfo1Sync, lfo1SyncBox);
     lfo1ShapeAtt = std::make_unique<ComboAttachment>(processorRef.apvts, Params::lfo1Shape, lfo1ShapeBox);
     lfo1RateAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::lfo1Rate, lfo1RateSlider);
     lfo1ChaosAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::lfo1Chaos, lfo1ChaosSlider);
     lfo1PwAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::lfo1Pw, lfo1PwSlider);
-
     lfo2SyncAtt = std::make_unique<ComboAttachment>(processorRef.apvts, Params::lfo2Sync, lfo2SyncBox);
     lfo2ShapeAtt = std::make_unique<ComboAttachment>(processorRef.apvts, Params::lfo2Shape, lfo2ShapeBox);
     lfo2RateAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::lfo2Rate, lfo2RateSlider);
     lfo2ChaosAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::lfo2Chaos, lfo2ChaosSlider);
     lfo2PwAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::lfo2Pw, lfo2PwSlider);
 
-    // Attachements Main
     polarityAtt = std::make_unique<ComboAttachment>(processorRef.apvts, Params::polarity, polarityBox);
     mainAtts[0] = std::make_unique<SliderAttachment>(processorRef.apvts, Params::pitch, pitchSlider);
     mainAtts[1] = std::make_unique<SliderAttachment>(processorRef.apvts, Params::feedback, decaySlider);
@@ -126,6 +118,13 @@ void BlueSwanAudioProcessorEditor::timerCallback()
 void BlueSwanAudioProcessorEditor::paint(juce::Graphics& g)
 {
     g.fillAll(juce::Colours::black);
+    
+    // FOND DU TIROIR (Gris foncé très légèrement vert)
+    if (isDrawerOpen) {
+        g.setColour(juce::Colour(25, 30, 25)); 
+        g.fillRect(getLocalBounds().removeFromBottom(370));
+    }
+
     g.setColour(juce::Colours::white);
     g.setFont(24.0f);
     g.drawFittedText("BLUE SWAN", getLocalBounds().removeFromTop(40), juce::Justification::centred, 1);
@@ -133,6 +132,8 @@ void BlueSwanAudioProcessorEditor::paint(juce::Graphics& g)
     g.setColour(juce::Colours::darkgrey);
     auto area = getLocalBounds().reduced(10);
     area.removeFromTop(40);
+    if (isDrawerOpen) area.removeFromBottom(370); // On arrête les lignes au tiroir
+    
     auto leftArea = area.removeFromLeft(150); 
     g.drawVerticalLine((int)leftArea.getRight() + 10, (float)area.getY(), (float)area.getBottom());
 
@@ -146,56 +147,41 @@ void BlueSwanAudioProcessorEditor::resized()
 {
     auto area = getLocalBounds().reduced(10);
     area.removeFromTop(40);
-
     if (isDrawerOpen) area.removeFromBottom(370);
 
     auto leftArea = area.removeFromLeft(150).reduced(10);
     macroLabel.setBounds(leftArea.removeFromTop(30)); macroSlider.setBounds(leftArea.removeFromTop(120));
-    leftArea.removeFromTop(20);
-    polarityLabel.setBounds(leftArea.removeFromTop(20)); polarityBox.setBounds(leftArea.removeFromTop(30));
+    leftArea.removeFromTop(20); polarityLabel.setBounds(leftArea.removeFromTop(20)); polarityBox.setBounds(leftArea.removeFromTop(30));
 
     area.removeFromLeft(20); 
-    
-    const int cols = 4;
-    const int colWidth = area.getWidth() / cols;
-    const int rowHeight = area.getHeight() / 3;
+    const int cols = 4; const int colWidth = area.getWidth() / cols; const int rowHeight = area.getHeight() / 3;
 
     auto place = [&](juce::Slider& s, juce::Label& l, int col, int row) {
         juce::Rectangle<int> cell(area.getX() + col * colWidth, area.getY() + row * rowHeight, colWidth, rowHeight);
-        cell = cell.reduced(10);
-        l.setBounds(cell.removeFromTop(20));
-        s.setBounds(cell);
+        cell = cell.reduced(10); l.setBounds(cell.removeFromTop(20)); s.setBounds(cell);
     };
 
-    // Col 1
-    place(inputCutoffSlider, inputCutoffLabel, 0, 0);
-    place(loopCutoffSlider, loopCutoffLabel, 0, 1);
-    place(pitchSlider, pitchLabel, 0, 2);
-    // Col 2
-    place(pluckSlider, pluckLabel, 1, 0);
-    place(inharmSlider, inharmLabel, 1, 1);
-    // Col 3
-    place(decaySlider, decayLabel, 2, 0);
-    place(crossFbSlider, crossFbLabel, 2, 1);
-    place(selfModSlider, selfModLabel, 2, 2);
-    // Col 4
-    place(dryWetSlider, dryWetLabel, 3, 0);
-    place(wetGainSlider, wetGainLabel, 3, 1);
-    place(jitterSlider, jitterLabel, 3, 2);
+    place(inputCutoffSlider, inputCutoffLabel, 0, 0); place(loopCutoffSlider, loopCutoffLabel, 0, 1); place(pitchSlider, pitchLabel, 0, 2);
+    place(pluckSlider, pluckLabel, 1, 0); place(inharmSlider, inharmLabel, 1, 1);
+    place(decaySlider, decayLabel, 2, 0); place(crossFbSlider, crossFbLabel, 2, 1); place(selfModSlider, selfModLabel, 2, 2);
+    place(dryWetSlider, dryWetLabel, 3, 0); place(wetGainSlider, wetGainLabel, 3, 1); place(jitterSlider, jitterLabel, 3, 2);
 
     drawerButton.setBounds(getLocalBounds().removeFromBottom(25).reduced(0, 2));
 
-    // --- TIROIR ---
     if (isDrawerOpen) {
         auto drawerArea = getLocalBounds().removeFromBottom(370).reduced(10);
         drawerArea.removeFromBottom(25);
 
         auto matrixArea = drawerArea.removeFromTop(150);
-        int mCols = 12;
+        int mCols = 14; // 14 paramètres
         int mWidth = matrixArea.getWidth() / mCols;
         int mRowHeight = matrixArea.getHeight() / 2;
 
-        for (int i = 0; i < 12; ++i) {
+        // Colonne de gauche pour les noms LFO
+        lfo1NameLabel.setBounds(matrixArea.getX() - 50, matrixArea.getY(), 40, mRowHeight); lfo1NameLabel.setVisible(true);
+        lfo2NameLabel.setBounds(matrixArea.getX() - 50, matrixArea.getY() + mRowHeight, 40, mRowHeight); lfo2NameLabel.setVisible(true);
+
+        for (int i = 0; i < mCols; ++i) {
             matrixLabels[i].setBounds(matrixArea.getX() + i * mWidth, matrixArea.getY() - 20, mWidth, 20);
             matrixLabels[i].setVisible(true);
             
@@ -208,20 +194,19 @@ void BlueSwanAudioProcessorEditor::resized()
 
         drawerArea.removeFromTop(20);
 
-        auto lfo1Area = drawerArea.removeFromTop(80).reduced(0, 5);
+        // LFO 1 (Horizontal)
+        auto lfo1Area = drawerArea.removeFromTop(80).reduced(50, 5);
         lfo1SyncBox.setBounds(lfo1Area.removeFromLeft(100).reduced(5)); lfo1SyncBox.setVisible(true);
         lfo1ShapeBox.setBounds(lfo1Area.removeFromLeft(100).reduced(5)); lfo1ShapeBox.setVisible(true);
-        
         auto placeLfoKnob = [&](juce::Slider& s, juce::Label& l, juce::Rectangle<int> a) {
-            auto cell = a.reduced(5);
-            l.setBounds(cell.removeFromTop(15)); l.setVisible(true);
-            s.setBounds(cell); s.setVisible(true);
+            auto cell = a.reduced(5); l.setBounds(cell.removeFromTop(15)); l.setVisible(true); s.setBounds(cell); s.setVisible(true);
         };
         placeLfoKnob(lfo1RateSlider, lfo1RateLabel, lfo1Area.removeFromLeft(80));
         placeLfoKnob(lfo1ChaosSlider, lfo1ChaosLabel, lfo1Area.removeFromLeft(80));
         placeLfoKnob(lfo1PwSlider, lfo1PwLabel, lfo1Area.removeFromLeft(80));
 
-        auto lfo2Area = drawerArea.removeFromTop(80).reduced(0, 5);
+        // LFO 2 (Horizontal)
+        auto lfo2Area = drawerArea.removeFromTop(80).reduced(50, 5);
         lfo2SyncBox.setBounds(lfo2Area.removeFromLeft(100).reduced(5)); lfo2SyncBox.setVisible(true);
         lfo2ShapeBox.setBounds(lfo2Area.removeFromLeft(100).reduced(5)); lfo2ShapeBox.setVisible(true);
         placeLfoKnob(lfo2RateSlider, lfo2RateLabel, lfo2Area.removeFromLeft(80));
@@ -229,11 +214,8 @@ void BlueSwanAudioProcessorEditor::resized()
         placeLfoKnob(lfo2PwSlider, lfo2PwLabel, lfo2Area.removeFromLeft(80));
 
     } else {
-        for (int i = 0; i < 12; ++i) {
-            matrixLabels[i].setVisible(false);
-            m1Sliders[i].setVisible(false);
-            m2Sliders[i].setVisible(false);
-        }
+        for (int i = 0; i < 14; ++i) { matrixLabels[i].setVisible(false); m1Sliders[i].setVisible(false); m2Sliders[i].setVisible(false); }
+        lfo1NameLabel.setVisible(false); lfo2NameLabel.setVisible(false);
         lfo1SyncBox.setVisible(false); lfo1ShapeBox.setVisible(false); lfo1RateSlider.setVisible(false); lfo1ChaosSlider.setVisible(false); lfo1PwSlider.setVisible(false);
         lfo1RateLabel.setVisible(false); lfo1ChaosLabel.setVisible(false); lfo1PwLabel.setVisible(false);
         lfo2SyncBox.setVisible(false); lfo2ShapeBox.setVisible(false); lfo2RateSlider.setVisible(false); lfo2ChaosSlider.setVisible(false); lfo2PwSlider.setVisible(false);
