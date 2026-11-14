@@ -32,7 +32,7 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     
     // --- MODULE ENTREE ---
     setupRotarySlider(inputCutoffSlider, inputCutoffLabel, "In Cutoff", *this);
-    setupRotarySlider(loopCutoffSlider, loopCutoffLabel, "Loop Cutoff", *this); // LOOP CUTOFF EST ICI
+    setupRotarySlider(loopCutoffSlider, loopCutoffLabel, "Loop Cutoff", *this);
     setupRotarySlider(pitchSlider, pitchLabel, "Pitch", *this);
     
     // --- MODULE FEEDBACK ---
@@ -43,9 +43,9 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     // --- MODULE SORTIE ---
     setupRotarySlider(dryWetSlider, dryWetLabel, "Dry/Wet", *this);
     setupRotarySlider(wetGainSlider, wetGainLabel, "Wet Gain", *this);
-    setupRotarySlider(jitterSlider, jitterLabel, "Drift", *this); // DRIFT EST ICI
+    setupRotarySlider(jitterSlider, jitterLabel, "Drift", *this);
     
-    // --- ATTACHEMENTS (Relie les boutons aux paramètres) ---
+    // --- ATTACHEMENTS ---
     macroAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::macro, macroSlider);
     polarityAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(processorRef.apvts, Params::polarity, polarityBox);
     eksEnableAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processorRef.apvts, Params::eksEnable, eksEnableButton);
@@ -54,14 +54,14 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     inharmAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::inharm, inharmSlider);
     inharmJitAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::inharmJit, inharmJitSlider);
     inputCutoffAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::inputCutoff, inputCutoffSlider);
-    loopCutoffAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::loopCutoff, loopCutoffSlider); // ATTACHEMENT LOOP CUTOFF
+    loopCutoffAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::loopCutoff, loopCutoffSlider);
     pitchAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::pitch, pitchSlider);
     decayAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::feedback, decaySlider);
     crossFbAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::crossFb, crossFbSlider);
     selfModAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::selfMod, selfModSlider);
     dryWetAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::dryWet, dryWetSlider);
     wetGainAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::wetGain, wetGainSlider);
-    jitterAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::jitter, jitterSlider); // ATTACHEMENT DRIFT
+    jitterAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::jitter, jitterSlider);
 
     setSize(850, 480);
     startTimerHz(10);
@@ -74,8 +74,8 @@ BlueSwanAudioProcessorEditor::~BlueSwanAudioProcessorEditor()
 
 void BlueSwanAudioProcessorEditor::timerCallback()
 {
+    // 1. Gestion du grisage des boutons EKS
     bool eksActive = processorRef.apvts.getRawParameterValue(Params::eksEnable)->load() > 0.5f;
-    
     auto setAlpha = [](juce::Component& c, float a) {
         c.setAlpha(a);
         c.setEnabled(a > 0.5f);
@@ -87,6 +87,27 @@ void BlueSwanAudioProcessorEditor::timerCallback()
     setAlpha(inharmLabel,  eksActive ? 1.0f : 0.3f);
     setAlpha(inharmJitSlider, eksActive ? 1.0f : 0.3f);
     setAlpha(inharmJitLabel,  eksActive ? 1.0f : 0.3f);
+
+    // 2. Gestion de la couleur du Cross FB (Alerte de danger)
+    float fb = processorRef.apvts.getRawParameterValue(Params::feedback)->load();
+    float crossFb = processorRef.apvts.getRawParameterValue(Params::crossFb)->load();
+
+    juce::Colour baseColor = juce::Colours::white; // Couleur par défaut de JUCE
+    juce::Colour finalColor = baseColor;
+
+    if (fb > 0.6f && crossFb > 0.3f) {
+        if (crossFb < 0.6f) {
+            // Dégradé de 0.3 à 0.6
+            float normalized = (crossFb - 0.3f) / 0.3f; // Valeur entre 0.0 et 1.0
+            finalColor = baseColor.interpolatedWith(juce::Colours::red, normalized);
+        } else {
+            // Rouge vif au-delà de 0.6
+            finalColor = juce::Colours::red;
+        }
+    }
+
+    // Mise à jour de la couleur sur le bouton
+    crossFbSlider.setColour(juce::Slider::rotarySliderFillColourId, finalColor);
 }
 
 void BlueSwanAudioProcessorEditor::paint(juce::Graphics& g)
@@ -115,7 +136,6 @@ void BlueSwanAudioProcessorEditor::resized()
     auto area = getLocalBounds().reduced(10);
     area.removeFromTop(40);
 
-    // --- ZONE GAUCHE (Macro, Polarity) ---
     auto leftArea = area.removeFromLeft(150).reduced(10);
     
     macroLabel.setBounds(leftArea.removeFromTop(30));
@@ -125,7 +145,6 @@ void BlueSwanAudioProcessorEditor::resized()
     polarityLabel.setBounds(leftArea.removeFromTop(20));
     polarityBox.setBounds(leftArea.removeFromTop(30));
 
-    // --- ZONE DROITE (Grille de 4 colonnes) ---
     area.removeFromLeft(20); 
     
     const int cols = 4;
@@ -139,12 +158,12 @@ void BlueSwanAudioProcessorEditor::resized()
         s.setBounds(cell);
     };
 
-    // COLONNE 1 : Entrée (In Cutoff, Loop Cutoff, Pitch)
+    // COLONNE 1 : Entrée
     place(inputCutoffSlider, inputCutoffLabel, 0, 0);
-    place(loopCutoffSlider, loopCutoffLabel, 0, 1); // PLACEMENT LOOP CUTOFF
+    place(loopCutoffSlider, loopCutoffLabel, 0, 1);
     place(pitchSlider, pitchLabel, 0, 2);
     
-    // COLONNE 2 : EKS (Switch, Hβ, Inharm+Jit)
+    // COLONNE 2 : EKS
     auto eksCell = juce::Rectangle<int>(area.getX() + colWidth, area.getY(), colWidth, rowHeight).reduced(10);
     eksEnableButton.setBounds(eksCell.removeFromTop(30));
     
@@ -159,13 +178,13 @@ void BlueSwanAudioProcessorEditor::resized()
     inharmLabel.setBounds(inharmRow.removeFromTop(20));
     inharmSlider.setBounds(inharmRow);
 
-    // COLONNE 3 : Feedback (Feedback, Cross FB, Self-Mod)
+    // COLONNE 3 : Feedback
     place(decaySlider, decayLabel, 2, 0);
     place(crossFbSlider, crossFbLabel, 2, 1);
     place(selfModSlider, selfModLabel, 2, 2);
 
-    // COLONNE 4 : Sortie (Dry/Wet, Wet Gain, Drift)
+    // COLONNE 4 : Sortie
     place(dryWetSlider, dryWetLabel, 3, 0);
     place(wetGainSlider, wetGainLabel, 3, 1);
-    place(jitterSlider, jitterLabel, 3, 2); // PLACEMENT DRIFT
+    place(jitterSlider, jitterLabel, 3, 2);
 }
