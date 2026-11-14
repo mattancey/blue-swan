@@ -1,213 +1,164 @@
 #include "Resonator.h"
 
-Resonator::Resonator()
-{
-    pitchSemitonesSmoothed.setCurrentAndTargetValue(0.0f);
-    decaySmoothed.setCurrentAndTargetValue(0.85f);
-    pluckSmoothed.setCurrentAndTargetValue(0.0f);
-    inharmSmoothed.setCurrentAndTargetValue(0.0f);
-    dryWetSmoothed.setCurrentAndTargetValue(0.5f);
-    jitterSmoothed.setCurrentAndTargetValue(0.0f);
-    crossFbSmoothed.setCurrentAndTargetValue(0.0f);
-    selfModSmoothed.setCurrentAndTargetValue(0.0f);
-    wetGainSmoothed.setCurrentAndTargetValue(1.0f);
-    gateSmoothed.setCurrentAndTargetValue(0.0f);
-    jitterGen.seed(std::random_device{}());
+Resonator::Resonator() { 
+    gateSmoothed.setCurrentAndTargetValue(0.0f); 
+    jitterGen.seed(std::random_device{}()); 
 }
 
 void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
 {
     currentSampleRate = sampleRate;
-    juce::dsp::ProcessSpec spec;
-    spec.sampleRate = sampleRate;
-    spec.maximumBlockSize = (juce::uint32) samplesPerBlock;
-    spec.numChannels = 1;
+    juce::dsp::ProcessSpec spec { sampleRate, (juce::uint32)samplesPerBlock, 1 };
 
     channels.resize((size_t) numChannels);
-    for (auto& ch : channels)
-    {
-        ch.delayLine.prepare(spec);
-        ch.delayLine.reset();
-        ch.pluckDelay.prepare(spec);
-        ch.pluckDelay.reset();
-        
-        ch.inputFilter.prepare(spec);
-        ch.inputFilter.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
-        ch.inputFilter.reset();
-        
-        ch.loopFilter.reset();
-        ch.dcBlocker.reset();
+    for (auto& ch : channels) {
+        ch.delayLine.prepare(spec); ch.delayLine.reset();
+        ch.pluckDelay.prepare(spec); ch.pluckDelay.reset();
+        ch.inputFilter.prepare(spec); ch.inputFilter.setType(juce::dsp::StateVariableTPTFilterType::lowpass); ch.inputFilter.reset();
+        ch.loopFilter.reset(); ch.dcBlocker.reset();
         ch.modFilter.setCutoff(20.0f, (float) sampleRate);
         for(int i=0; i<24; ++i) ch.inharmAllpass[i].reset();
     }
-
-    pitchSemitonesSmoothed.reset(sampleRate, 0.05);
-    decaySmoothed.reset(sampleRate, 0.05);
-    pluckSmoothed.reset(sampleRate, 0.05);
-    inharmSmoothed.reset(sampleRate, 0.05);
-    dryWetSmoothed.reset(sampleRate, 0.02);
-    jitterSmoothed.reset(sampleRate, 0.1);
-    crossFbSmoothed.reset(sampleRate, 0.05);
-    selfModSmoothed.reset(sampleRate, 0.05);
-    wetGainSmoothed.reset(sampleRate, 0.02);
     gateSmoothed.reset(sampleRate, 2.0);
     gateSmoothed.setCurrentAndTargetValue(0.0f);
+    lfo1.prepare(sampleRate); lfo2.prepare(sampleRate);
 }
 
-void Resonator::reset()
-{
-    for (auto& ch : channels)
-    {
-        ch.delayLine.reset();
-        ch.pluckDelay.reset();
-        ch.inputFilter.reset();
-        ch.loopFilter.reset();
-        ch.dcBlocker.reset();
-        ch.modFilter.reset();
+void Resonator::reset() { 
+    for (auto& ch : channels) {
+        ch.delayLine.reset(); ch.pluckDelay.reset(); ch.inputFilter.reset(); ch.loopFilter.reset();
+        ch.dcBlocker.reset(); ch.modFilter.reset();
         for(int i=0; i<24; ++i) ch.inharmAllpass[i].reset();
     }
-    jitterState[0] = 0.0f;
-    jitterState[1] = 0.0f;
     gateSmoothed.setCurrentAndTargetValue(0.0f);
+    jitterState[0] = 0.0f; jitterState[1] = 0.0f;
 }
 
-void Resonator::setPitchSemitones(float semitones) { pitchSemitonesSmoothed.setTargetValue(juce::jlimit(-36.0f, 36.0f, semitones)); }
-void Resonator::setDecay(float decay) { decaySmoothed.setTargetValue(juce::jlimit(0.0f, 0.99f, decay)); }
-void Resonator::setPluck(float pluck) { pluckSmoothed.setTargetValue(juce::jlimit(0.0f, 1.0f, pluck)); }
-void Resonator::setInharm(float inharm) { inharmSmoothed.setTargetValue(juce::jlimit(0.0f, 0.99f, inharm)); }
-void Resonator::setInputCutoff(float cutoffHz) { currentInputCutoff = juce::jlimit(20.0f, 20000.0f, cutoffHz); }
-void Resonator::setLoopCutoff(float cutoffHz) { currentLoopCutoff = juce::jlimit(20.0f, 20000.0f, cutoffHz); }
-void Resonator::setDryWet(float dryWet) { dryWetSmoothed.setTargetValue(juce::jlimit(0.0f, 1.0f, dryWet)); }
-void Resonator::setJitter(float jitterAmount) { jitterSmoothed.setTargetValue(juce::jlimit(0.0f, 1.0f, jitterAmount)); }
-void Resonator::setCrossFeedback(float crossAmt) { crossFbSmoothed.setTargetValue(juce::jlimit(0.0f, 0.98f, crossAmt)); }
-void Resonator::setSelfMod(float selfModAmount) { selfModSmoothed.setTargetValue(juce::jlimit(0.0f, 1.0f, selfModAmount)); }
-void Resonator::setPolarity(bool isNegative) { polarityMultiplier = isNegative ? -1.0f : 1.0f; }
-void Resonator::setWetGain(float gain) { wetGainSmoothed.setTargetValue(juce::jlimit(0.0f, 2.0f, gain)); }
-
-float Resonator::semitonesToDelaySamples(float semitones) const noexcept
-{
-    const float freq = baseFreqHz * std::pow(2.0f, semitones / 12.0f);
-    const float delay = (float) (currentSampleRate / freq);
-    return juce::jlimit(4.0f, maxDelaySamples - 8.0f, delay);
-}
-
-void Resonator::process(juce::AudioBuffer<float>& buffer)
+void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, double bpm, bool isNegative)
 {
     const int numChannels = juce::jmin((int) channels.size(), buffer.getNumChannels());
     const int numSamples = buffer.getNumSamples();
+    const float polarityMult = isNegative ? -1.0f : 1.0f;
 
-    for (int ch = 0; ch < numChannels; ++ch)
-    {
-        channels[(size_t) ch].inputFilter.setCutoffFrequency(currentInputCutoff);
-        channels[(size_t) ch].loopFilter.setCutoff(currentLoopCutoff, (float) currentSampleRate);
-    }
+    // Calcul des fréquences LFO (Hz)
+    auto getLfoHz = [&](int syncIdx, float rate) {
+        if (syncIdx == 0) return rate;
+        float beatsPerSec = (float)bpm / 60.0f;
+        float mult = 1.0f;
+        if (syncIdx == 1) mult = 1.0f; else if (syncIdx == 2) mult = 1.5f; else if (syncIdx == 3) mult = 0.666f;
+        else if (syncIdx == 4) mult = 2.0f; else if (syncIdx == 5) mult = 3.0f; else if (syncIdx == 6) mult = 1.333f;
+        else if (syncIdx == 7) mult = 4.0f; else if (syncIdx == 8) mult = 6.0f; else if (syncIdx == 9) mult = 2.666f;
+        else if (syncIdx == 10) mult = 8.0f; else if (syncIdx == 11) mult = 12.0f; else if (syncIdx == 12) mult = 5.333f;
+        else if (syncIdx == 13) mult = 16.0f; else if (syncIdx == 14) mult = 24.0f; else if (syncIdx == 15) mult = 10.666f;
+        return beatsPerSec * mult;
+    };
+
+    float lfo1Hz = getLfoHz(p.lfo1Sync, p.lfo1Rate);
+    float lfo2Hz = getLfoHz(p.lfo2Sync, p.lfo2Rate);
+    float lfo1Phase = (p.lfo1Sync > 0) ? (p.lfo1Rate / 100.0f) * 360.0f : 0.0f;
+    float lfo2Phase = (p.lfo2Sync > 0) ? (p.lfo2Rate / 100.0f) * 360.0f : 0.0f;
+
+    lfo1.setShape(p.lfo1Shape); lfo1.setChaos(p.lfo1Chaos); lfo1.setPulseWidth(p.lfo1Pw);
+    lfo2.setShape(p.lfo2Shape); lfo2.setChaos(p.lfo2Chaos); lfo2.setPulseWidth(p.lfo2Pw);
 
     float loopOutputs[2] = { 0.0f, 0.0f };
 
     for (int i = 0; i < numSamples; ++i)
     {
-        const float pitchSt = pitchSemitonesSmoothed.getNextValue();
-        const float decay = decaySmoothed.getNextValue();
-        const float pluck = pluckSmoothed.getNextValue();
-        const float inharm = inharmSmoothed.getNextValue();
-        
-        const float wetMix = dryWetSmoothed.getNextValue();
-        const float drift = jitterSmoothed.getNextValue();
-        const float crossFB = crossFbSmoothed.getNextValue();
-        const float selfModAmt = selfModSmoothed.getNextValue();
-        const float currentWetGain = wetGainSmoothed.getNextValue();
-        
-        float delaySamples = semitonesToDelaySamples(pitchSt);
-        float pluckDelayTime = delaySamples * 0.5f; 
+        // --- LFOs (Sample by sample pour FM) ---
+        float v1 = lfo1.process(lfo1Hz, lfo1Phase);
+        float v2 = lfo2.process(lfo2Hz, lfo2Phase);
 
-        if (drift > 0.001f) {
+        // --- Modulations ---
+        auto mod = [&](float base, float d1, float d2, float maxVal) {
+            return juce::jlimit(0.0f, maxVal, base + (v1 * d1) + (v2 * d2));
+        };
+
+        float mMacro = mod(p.macro, p.m1_macro, p.m2_macro, 1.0f);
+        float macroBoost = mMacro > 0.001f ? mMacro : 0.0f;
+        
+        float mPitch = mod(p.pitch + (macroBoost * 24.0f), p.m1_pitch * 24.0f, p.m2_pitch * 24.0f, 36.0f); // -36 à 36
+        if (p.pitch + (v1*p.m1_pitch) + (v2*p.m2_pitch) < 0) mPitch = -mPitch; // Gestion signe
+        
+        float mFb = mod(p.feedback + (macroBoost * 0.1f), p.m1_feed, p.m2_feed, 0.99f);
+        float mInc = mod(p.inputCutoff * (1.0f + macroBoost * 3.0f), p.m1_incut * 10000.0f, p.m2_incut * 10000.0f, 20000.0f);
+        float mLoop = mod(p.loopCutoff * (1.0f + macroBoost * 3.0f), p.m1_loopcut * 10000.0f, p.m2_loopcut * 10000.0f, 20000.0f);
+        float mHbeta = mod(p.pluck, p.m1_hbeta, p.m2_hbeta, 1.0f);
+        float mInharm = mod(p.inharm, p.m1_inharm, p.m2_inharm, 0.99f);
+        float mCross = mod(p.crossFb, p.m1_cross, p.m2_cross, 0.98f);
+        float mSelf = mod(p.selfMod, p.m1_self, p.m2_self, 1.0f);
+        float mDrift = mod(p.jitter, p.m1_drift, p.m2_drift, 1.0f);
+        float mDryWet = mod(p.dryWet, p.m1_drywet, p.m2_drywet, 1.0f);
+        float mWetGain = mod(p.wetGain, p.m1_wetgain, p.m2_wetgain, 2.0f);
+
+        float delaySamples = (float)(currentSampleRate / (261.63f * std::pow(2.0f, mPitch / 12.0f)));
+        delaySamples = juce::jlimit(4.0f, maxDelaySamples - 8.0f, delaySamples);
+        float pluckDelayTime = delaySamples * 0.5f;
+
+        if (mDrift > 0.001f) {
             for (int ch = 0; ch < numChannels; ++ch) {
                 float noise = jitterDist(jitterGen);
                 jitterState[ch] += 0.001f * (noise - jitterState[ch]);
-                delaySamples += jitterState[ch] * drift * (float)(currentSampleRate * 0.005);
+                delaySamples += jitterState[ch] * mDrift * (float)(currentSampleRate * 0.005);
             }
             delaySamples = juce::jlimit(4.0f, maxDelaySamples - 8.0f, delaySamples);
         }
 
-        if (selfModAmt > 0.001f && numChannels > 0) {
+        if (mSelf > 0.001f) {
             float modulator = 0.0f;
-            for (int ch = 0; ch < numChannels; ++ch) {
-                modulator += channels[(size_t) ch].modFilter.process(loopOutputs[ch]);
-            }
-            modulator /= (float) numChannels;
-            delaySamples += modulator * selfModAmt * (float)(currentSampleRate * 0.01);
+            for (int ch = 0; ch < numChannels; ++ch) modulator += channels[ch].modFilter.process(loopOutputs[ch]);
+            modulator /= (float)numChannels;
+            delaySamples += modulator * mSelf * (float)(currentSampleRate * 0.01);
             delaySamples = juce::jlimit(4.0f, maxDelaySamples - 8.0f, delaySamples);
         }
 
+        // Gate
         float inputAbs = 0.0f;
-        for (int ch = 0; ch < numChannels; ++ch) {
-            inputAbs = juce::jmax(inputAbs, std::abs(buffer.getReadPointer(ch)[i]));
-        }
-        
-        if (inputAbs > 0.00398107f) {
-            gateSmoothed.setCurrentAndTargetValue(1.0f);
-        } else {
-            gateSmoothed.setTargetValue(0.0f);
-        }
+        for (int ch = 0; ch < numChannels; ++ch) inputAbs = juce::jmax(inputAbs, std::abs(buffer.getReadPointer(ch)[i]));
+        gateSmoothed.setTargetValue(inputAbs > 0.00398107f ? 1.0f : 0.0f);
         float currentGate = gateSmoothed.getNextValue();
 
-        // --- LECTURE DE LA BOUCLE ---
-        for (int ch = 0; ch < numChannels; ++ch)
-        {
-            auto& state = channels[(size_t) ch];
+        for (int ch = 0; ch < numChannels; ++ch) {
+            auto& state = channels[ch];
+            state.inputFilter.setCutoffFrequency(mInc);
+            state.loopFilter.setCutoff(mLoop, (float)currentSampleRate);
+        }
+
+        // Boucle (Lecture)
+        for (int ch = 0; ch < numChannels; ++ch) {
+            auto& state = channels[ch];
             state.delayLine.setDelay(delaySamples);
             float delayed = state.delayLine.popSample(0);
 
-            // Inharm
             for (int j = 0; j < 24; ++j) {
-                state.inharmAllpass[j].setCoeff(inharm * 0.99f);
+                state.inharmAllpass[j].setCoeff(mInharm * 0.99f);
                 delayed = state.inharmAllpass[j].process(delayed);
             }
 
             float loopFiltered = state.loopFilter.process(delayed);
             loopFiltered = state.dcBlocker.process(loopFiltered);
-            loopFiltered *= decay;
-            
-            loopOutputs[ch] = loopFiltered;
+            loopOutputs[ch] = loopFiltered * mFb;
         }
 
-        // --- ÉCRITURE DANS LA BOUCLE (Pluck à l'entrée) ---
-        for (int ch = 0; ch < numChannels; ++ch)
-        {
-            auto& state = channels[(size_t) ch];
+        // Écriture (Pluck Feed-Forward)
+        for (int ch = 0; ch < numChannels; ++ch) {
+            auto& state = channels[ch];
             float dry = buffer.getReadPointer(ch)[i];
 
-            // Hβ (Pluck) Feed-Forward avec intensité augmentée de 50% (0.8 -> 1.2)
             state.pluckDelay.setDelay(pluckDelayTime);
             float pluckDelayed = state.pluckDelay.popSample(0);
-            
-            float comb = dry - pluckDelayed;
-            
-            // On intensifie le mélange à 1.2f au lieu de 0.8f
-            float mixAmount = pluck * 1.2f; 
-            // On s'assure de ne pas dépasser 1.0 pour le mélange final
-            mixAmount = juce::jlimit(0.0f, 1.0f, mixAmount); 
-
-            float pluckFiltered = dry * (1.0f - mixAmount) + comb * mixAmount;
-            
+            float mixAmt = juce::jlimit(0.0f, 1.0f, mHbeta * 1.2f);
+            float pluckFiltered = dry * (1.0f - mixAmt) + (dry - pluckDelayed) * mixAmt;
             state.pluckDelay.pushSample(0, dry);
 
-            float crossFeedbackSignal = 0.0f;
-            if (numChannels == 2) {
-                int otherCh = 1 - ch;
-                crossFeedbackSignal = loopOutputs[otherCh] * crossFB;
-            }
-
-            const float inputFiltered = state.inputFilter.processSample(0, pluckFiltered);
-            float toWrite = inputFiltered + (loopOutputs[ch] * polarityMultiplier) + crossFeedbackSignal;
-            toWrite = std::tanh(toWrite);
-
+            float crossSig = (numChannels == 2) ? loopOutputs[1 - ch] * mCross : 0.0f;
+            float inputFilt = state.inputFilter.processSample(0, pluckFiltered);
+            
+            float toWrite = std::tanh(inputFilt + (loopOutputs[ch] * polarityMult) + crossSig);
             state.delayLine.pushSample(0, toWrite);
-            
-            float wetSignal = loopOutputs[ch] + crossFeedbackSignal;
-            wetSignal *= currentWetGain * currentGate;
-            
-            buffer.getWritePointer(ch)[i] = dry * (1.0f - wetMix) + wetSignal * wetMix;
+
+            float wetSignal = (loopOutputs[ch] + crossSig) * mWetGain * currentGate;
+            buffer.getWritePointer(ch)[i] = dry * (1.0f - mDryWet) + wetSignal * mDryWet;
         }
     }
 }
