@@ -7,14 +7,11 @@ class LFO
 {
 public:
     LFO() { gen.seed(std::random_device{}()); }
-    
     void prepare(double sr) { sampleRate = sr; phase = 0.0; shValue = 0.0f; smoothValue = 0.0f; logX = 0.5f; }
-    
     void setShape(int shape) { currentShape = shape; }
     void setChaos(float c) { chaos = c; }
     void setPulseWidth(float w) { pulseWidth = w; }
 
-    // Advance phase and return value between -1 and 1
     float process(float frequencyHz, float phaseOffsetDegrees)
     {
         phase += frequencyHz / (float)sampleRate;
@@ -40,26 +37,15 @@ public:
             case 7: val = std::exp(-5.0f * p) * 2.0f - 1.0f; break; // Exp Decay
             case 8: val = (1.0f - std::exp(-5.0f * p)) * 2.0f - 1.0f; break; // Exp Rise
             case 9: val = shValue; break; // S&H
-            case 10: 
-                smoothValue += 0.01f * (shValue - smoothValue);
-                val = smoothValue;
-                break; // Smooth Random
-            case 11: 
-                logX = chaos * logX * (1.0f - logX);
-                val = logX * 2.0f - 1.0f;
-                break; // Logistic Map
+            case 10: smoothValue += 0.01f * (shValue - smoothValue); val = smoothValue; break; // Smooth Rnd
+            case 11: logX = chaos * logX * (1.0f - logX); val = logX * 2.0f - 1.0f; break; // Logistic
             case 12: val = std::floor(p * 4.0f) / 3.0f * 2.0f - 1.0f; break; // Staircase
             case 13: val = std::sin(p * 4.0f * 3.1415926f); break; // Double Sine
-            case 14: 
-                val = std::sin(p * 3.1415926f) * 1.5f; 
-                if (val > 1.0f) val = 2.0f - val; 
-                if (val < -1.0f) val = -2.0f - val; 
-                break; // SOMA (Fold)
+            case 14: val = std::sin(p * 3.1415926f) * 1.5f; if (val > 1.0f) val = 2.0f - val; if (val < -1.0f) val = -2.0f - val; break; // SOMA
             default: val = 0.0f; break;
         }
         return val;
     }
-
 private:
     double sampleRate = 44100.0;
     float phase = 0.0f;
