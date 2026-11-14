@@ -65,7 +65,7 @@ private:
     {
         float a = 0.0f;
         float x1 = 0.0f, y1 = 0.0f;
-        void setCoeff(float coeff) { a = juce::jlimit(-0.999f, 0.999f, coeff); }
+        void setCoeff(float coeff) { a = juce::jlimit(-0.99f, 0.99f, coeff); }
         float process(float x) noexcept {
             float y = -a * x + x1 + a * y1;
             x1 = x; y1 = y;
@@ -83,6 +83,7 @@ private:
         DCBlocker dcBlocker;
         OnePoleLP modFilter;
         Allpass inharmAllpass[16];
+        float inharmJitState = 0.0f; // État pour la marche aléatoire lente
     };
 
     std::vector<ChannelState> channels;
@@ -91,8 +92,6 @@ private:
     juce::SmoothedValue<float> decaySmoothed;
     juce::SmoothedValue<float> pluckSmoothed;
     juce::SmoothedValue<float> inharmSmoothed;
-    
-    // CES DEUX VARIABLES ÉTAIENT MANQUANTES DANS TON FICHIER :
     juce::SmoothedValue<float> inharmJitSmoothed; 
     bool isEksEnabled = true;
     
