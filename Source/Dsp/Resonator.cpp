@@ -22,6 +22,8 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
     gateSmoothed.reset(sampleRate, 2.0);
     gateSmoothed.setCurrentAndTargetValue(0.0f);
     lfo1.prepare(sampleRate); lfo2.prepare(sampleRate);
+    
+    lfo1Value = 0.0f; lfo2Value = 0.0f;
 }
 
 void Resonator::reset() { 
@@ -32,6 +34,7 @@ void Resonator::reset() {
     }
     gateSmoothed.setCurrentAndTargetValue(0.0f);
     jitterState[0] = 0.0f; jitterState[1] = 0.0f;
+    lfo1Value = 0.0f; lfo2Value = 0.0f;
 }
 
 void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, double bpm, bool isNegative)
@@ -64,8 +67,8 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
 
     for (int i = 0; i < numSamples; ++i)
     {
-        // Calcul de la modulation des LFOs par les LFOs (FM)
-        float modLfo1 = (lfo1Value * p.m1_lfo1 + lfo2Value * p.m2_lfo1) * 50.0f; // scale par 50
+        // Modulation des LFOs (FM croisée)
+        float modLfo1 = (lfo1Value * p.m1_lfo1 + lfo2Value * p.m2_lfo1) * 50.0f;
         float modLfo2 = (lfo1Value * p.m1_lfo2 + lfo2Value * p.m2_lfo2) * 50.0f;
         
         float lfo1Hz = juce::jlimit(0.01f, 100.0f, lfo1HzBase + modLfo1);
