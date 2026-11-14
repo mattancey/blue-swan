@@ -66,8 +66,9 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
 
     for (int i = 0; i < numSamples; ++i)
     {
-        float modLfo1 = (lfo1Value * p.m1_lfo1 + lfo2Value * p.m2_lfo1) * 50.0f;
-        float modLfo2 = (lfo1Value * p.m1_lfo2 + lfo2Value * p.m2_lfo2) * 50.0f;
+        // CROISEMENT UNIQUEMENT : LFO 2 modifie LFO 1, et LFO 1 modifie LFO 2
+        float modLfo1 = lfo2Value * p.m2_lfo1 * 50.0f;
+        float modLfo2 = lfo1Value * p.m1_lfo2 * 50.0f;
         
         float lfo1Hz = juce::jlimit(0.01f, 100.0f, lfo1HzBase + modLfo1);
         float lfo2Hz = juce::jlimit(0.01f, 100.0f, lfo2HzBase + modLfo2);
