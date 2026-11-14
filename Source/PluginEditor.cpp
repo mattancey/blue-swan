@@ -34,7 +34,7 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     
     setupRotarySlider(decaySlider, decayLabel, "Feedback", *this);
     setupRotarySlider(crossFbSlider, crossFbLabel, "Cross FB", *this);
-    crossFbSlider.setColour(juce::Slider::rotarySliderFillColourId, juce::Colours::black); // Base noire
+    crossFbSlider.setColour(juce::Slider::rotarySliderFillColourId, juce::Colours::black);
     setupRotarySlider(selfModSlider, selfModLabel, "Self-Mod", *this);
 
     setupRotarySlider(dryWetSlider, dryWetLabel, "Dry/Wet", *this);
@@ -82,20 +82,17 @@ void BlueSwanAudioProcessorEditor::timerCallback()
     setActive(inharmJitSlider, eksActive);
     setActive(inharmJitLabel, eksActive);
 
-    // --- GESTION COULEUR CROSS FB ---
     float fb = processorRef.apvts.getRawParameterValue(Params::feedback)->load();
     float crossFb = processorRef.apvts.getRawParameterValue(Params::crossFb)->load();
-    bool isNeg = processorRef.apvts.getRawParameterValue(Params::polarity)->load() > 0.5f;
 
-    juce::Colour finalColor = juce::Colours::black; // Base noire
+    juce::Colour finalColor = juce::Colours::black;
 
-    if (!isNeg && fb > 0.6f && crossFb > 0.3f) {
+    // GESTION COULEUR CROSS FB (SANS CONDITION DE POLARITE)
+    if (fb > 0.6f && crossFb > 0.3f) {
         if (crossFb < 0.6f) {
-            // Dégradé sur la partie supérieure : de noir vers rouge
             float normalized = (crossFb - 0.3f) / 0.3f;
             finalColor = finalColor.interpolatedWith(juce::Colours::red, normalized);
         } else {
-            // Rouge vif tout en haut
             finalColor = juce::Colours::red;
         }
     }
