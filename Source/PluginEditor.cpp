@@ -53,7 +53,6 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     setupMini(m2Sliders[12]); m2Atts[12] = std::make_unique<SliderAttachment>(processorRef.apvts, Params::m2_lfo1, m2Sliders[12]);
     setupMini(m1Sliders[13]); m1Atts[13] = std::make_unique<SliderAttachment>(processorRef.apvts, Params::m1_lfo2, m1Sliders[13]);
 
-    // Labels fixes de ligne
     lfo1RowLabel.setText("LFO 1", juce::dontSendNotification); lfo1RowLabel.setJustificationType(juce::Justification::centredLeft); lfo1RowLabel.setColour(juce::Label::textColourId, juce::Colours::white); lfo1RowLabel.setFont(juce::Font(juce::FontOptions(16.0f))); addChildComponent(lfo1RowLabel);
     lfo2RowLabel.setText("LFO 2", juce::dontSendNotification); lfo2RowLabel.setJustificationType(juce::Justification::centredLeft); lfo2RowLabel.setColour(juce::Label::textColourId, juce::Colours::white); lfo2RowLabel.setFont(juce::Font(juce::FontOptions(16.0f))); addChildComponent(lfo2RowLabel);
 
@@ -199,22 +198,21 @@ void BlueSwanAudioProcessorEditor::resized()
 
         drawerArea.removeFromTop(20);
 
-        // Layout LFO 1
+        // C'EST ICI QUE L'ERREUR DE CONVERSION ETAIT
         auto lfo1Area = drawerArea.removeFromTop(70).reduced(10, 0);
         auto placeLfoKnob = [&](juce::Slider& s, juce::Label& l, juce::Rectangle<int> a) {
             auto cell = a.reduced(5); l.setBounds(cell.removeFromTop(15)); l.setVisible(true); s.setBounds(cell); s.setVisible(true);
         };
         
-        int w = lfo1Area.getWidth() / 7; // [LFO] [Sync] [Shape] [Rate] [PW]
-        lfo1SyncBox.setBounds(lfo1Area.removeFromLeft(w * 1.5f).reduced(5)); lfo1SyncBox.setVisible(true);
-        lfo1ShapeBox.setBounds(lfo1Area.removeFromLeft(w * 1.5f).reduced(5)); lfo1ShapeBox.setVisible(true);
+        int w = lfo1Area.getWidth() / 7; 
+        lfo1SyncBox.setBounds(lfo1Area.removeFromLeft((int)(w * 1.5f)).reduced(5)); lfo1SyncBox.setVisible(true);
+        lfo1ShapeBox.setBounds(lfo1Area.removeFromLeft((int)(w * 1.5f)).reduced(5)); lfo1ShapeBox.setVisible(true);
         placeLfoKnob(lfo1RateSlider, lfo1RateLabel, lfo1Area.removeFromLeft(w * 2));
         placeLfoKnob(lfo1PwSlider, lfo1PwLabel, lfo1Area.removeFromLeft(w * 2));
 
-        // Layout LFO 2
         auto lfo2Area = drawerArea.removeFromTop(70).reduced(10, 0);
-        lfo2SyncBox.setBounds(lfo2Area.removeFromLeft(w * 1.5f).reduced(5)); lfo2SyncBox.setVisible(true);
-        lfo2ShapeBox.setBounds(lfo2Area.removeFromLeft(w * 1.5f).reduced(5)); lfo2ShapeBox.setVisible(true);
+        lfo2SyncBox.setBounds(lfo2Area.removeFromLeft((int)(w * 1.5f)).reduced(5)); lfo2SyncBox.setVisible(true);
+        lfo2ShapeBox.setBounds(lfo2Area.removeFromLeft((int)(w * 1.5f)).reduced(5)); lfo2ShapeBox.setVisible(true);
         placeLfoKnob(lfo2RateSlider, lfo2RateLabel, lfo2Area.removeFromLeft(w * 2));
         placeLfoKnob(lfo2PwSlider, lfo2PwLabel, lfo2Area.removeFromLeft(w * 2));
 
