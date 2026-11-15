@@ -25,7 +25,7 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
     gateSmoothed.setCurrentAndTargetValue(0.0f);
     
     lfo1.prepare(sampleRate); lfo2.prepare(sampleRate);
-    lfo1Smoothed.reset(sampleRate, 0.002); // 2ms d'anti-clic
+    lfo1Smoothed.reset(sampleRate, 0.002); 
     lfo2Smoothed.reset(sampleRate, 0.002);
     lfo1Value = 0.0f; lfo2Value = 0.0f;
 }
@@ -50,35 +50,35 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
     const float polarityMult = isNegative ? -1.0f : 1.0f;
 
     auto getLfoHz = [&](int syncIdx, float rate) {
-        if (syncIdx == 0) return rate; // Free
+        if (syncIdx == 0) return rate; 
         
         float beatsPerSec = (float)bpm / 60.0f;
         float beatsPerCycle = 1.0f;
         
         switch (syncIdx) {
-            case 1: beatsPerCycle = 16.0f; break; // 4 bars
-            case 2: beatsPerCycle = 8.0f; break;  // 2 bars
-            case 3: beatsPerCycle = 4.0f; break;  // 1 bar
-            case 4: beatsPerCycle = 4.0f; break;  // 1/1
-            case 5: beatsPerCycle = 4.0f * (2.0f/3.0f); break; // 1/1 T
-            case 6: beatsPerCycle = 4.0f * 1.5f; break; // 1/1 D
-            case 7: beatsPerCycle = 2.0f; break; // 1/2
-            case 8: beatsPerCycle = 2.0f * (2.0f/3.0f); break; // 1/2 T
-            case 9: beatsPerCycle = 2.0f * 1.5f; break; // 1/2 D
-            case 10: beatsPerCycle = 1.0f; break; // 1/4
-            case 11: beatsPerCycle = 2.0f/3.0f; break; // 1/4 T
-            case 12: beatsPerCycle = 1.5f; break; // 1/4 D
-            case 13: beatsPerCycle = 0.5f; break; // 1/8
-            case 14: beatsPerCycle = 0.5f * (2.0f/3.0f); break; // 1/8 T
-            case 15: beatsPerCycle = 0.5f * 1.5f; break; // 1/8 D
-            case 16: beatsPerCycle = 0.25f; break; // 1/16
-            case 17: beatsPerCycle = 0.25f * (2.0f/3.0f); break; // 1/16 T
-            case 18: beatsPerCycle = 0.25f * 1.5f; break; // 1/16 D
-            case 19: beatsPerCycle = 5.0f; break; // 5/4
-            case 20: beatsPerCycle = 6.0f; break; // 6/4
-            case 21: beatsPerCycle = 7.0f; break; // 7/4
-            case 22: beatsPerCycle = 9.0f; break; // 9/4
-            case 23: beatsPerCycle = 18.0f; break; // 18/4
+            case 1: beatsPerCycle = 16.0f; break; 
+            case 2: beatsPerCycle = 8.0f; break;  
+            case 3: beatsPerCycle = 4.0f; break;  
+            case 4: beatsPerCycle = 4.0f; break;  
+            case 5: beatsPerCycle = 4.0f * (2.0f/3.0f); break; 
+            case 6: beatsPerCycle = 4.0f * 1.5f; break; 
+            case 7: beatsPerCycle = 2.0f; break; 
+            case 8: beatsPerCycle = 2.0f * (2.0f/3.0f); break; 
+            case 9: beatsPerCycle = 2.0f * 1.5f; break; 
+            case 10: beatsPerCycle = 1.0f; break; 
+            case 11: beatsPerCycle = 2.0f/3.0f; break; 
+            case 12: beatsPerCycle = 1.5f; break; 
+            case 13: beatsPerCycle = 0.5f; break; 
+            case 14: beatsPerCycle = 0.5f * (2.0f/3.0f); break; 
+            case 15: beatsPerCycle = 0.5f * 1.5f; break; 
+            case 16: beatsPerCycle = 0.25f; break; 
+            case 17: beatsPerCycle = 0.25f * (2.0f/3.0f); break; 
+            case 18: beatsPerCycle = 0.25f * 1.5f; break; 
+            case 19: beatsPerCycle = 5.0f; break; 
+            case 20: beatsPerCycle = 6.0f; break; 
+            case 21: beatsPerCycle = 7.0f; break; 
+            case 22: beatsPerCycle = 9.0f; break; 
+            case 23: beatsPerCycle = 18.0f; break; 
             default: beatsPerCycle = 1.0f; break;
         }
         return beatsPerSec / beatsPerCycle;
@@ -107,8 +107,10 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
 
         lfo1Smoothed.setTargetValue(lfo1Value);
         lfo2Smoothed.setTargetValue(lfo2Value);
-        float l1 = lfo1Smoothed.getNextValue();
-        float l2 = lfo2Smoothed.getNextValue();
+        
+        // Application du bypass
+        float l1 = p.lfo1Bypass ? 0.0f : lfo1Smoothed.getNextValue();
+        float l2 = p.lfo2Bypass ? 0.0f : lfo2Smoothed.getNextValue();
 
         auto mod = [&](float base, float d1, float d2, float maxVal) {
             return juce::jlimit(0.0f, maxVal, base + (l1 * d1) + (l2 * d2));
