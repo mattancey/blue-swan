@@ -25,7 +25,7 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     drawerButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     drawerButton.onClick = [this]() {
         isDrawerOpen = !isDrawerOpen;
-        targetHeight = isDrawerOpen ? 900.0f : 480.0f; // Tiroir plus grand (900)
+        targetHeight = isDrawerOpen ? 880.0f : 480.0f; // Tiroir réduit à 400px
     };
     addAndMakeVisible(drawerButton);
 
@@ -54,16 +54,32 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     setupMini(m2Sliders[12]); m2Atts[12] = std::make_unique<SliderAttachment>(processorRef.apvts, Params::m2_lfo1, m2Sliders[12]);
     setupMini(m1Sliders[13]); m1Atts[13] = std::make_unique<SliderAttachment>(processorRef.apvts, Params::m1_lfo2, m1Sliders[13]);
 
-    matrixLfo1Label.setText("LFO\n1", juce::dontSendNotification); matrixLfo1Label.setJustificationType(juce::Justification::centred); matrixLfo1Label.setColour(juce::Label::textColourId, juce::Colours::white); matrixLfo1Label.setFont(juce::Font(juce::FontOptions(14.0f))); addChildComponent(matrixLfo1Label);
-    matrixLfo2Label.setText("LFO\n2", juce::dontSendNotification); matrixLfo2Label.setJustificationType(juce::Justification::centred); matrixLfo2Label.setColour(juce::Label::textColourId, juce::Colours::white); matrixLfo2Label.setFont(juce::Font(juce::FontOptions(14.0f))); addChildComponent(matrixLfo2Label);
+    // LFO 1 Bypass (Bouton)
+    lfo1BypassButton.setButtonText("LFO\n1");
+    lfo1BypassButton.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+    lfo1BypassButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    lfo1BypassButton.setColour(juce::TextButton::textColourOnId, juce::Colours::red);
+    lfo1BypassButton.setClickingTogglesState(true);
+    addChildComponent(lfo1BypassButton);
+
+    // LFO 2 Bypass (Bouton)
+    lfo2BypassButton.setButtonText("LFO\n2");
+    lfo2BypassButton.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+    lfo2BypassButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    lfo2BypassButton.setColour(juce::TextButton::textColourOnId, juce::Colours::red);
+    lfo2BypassButton.setClickingTogglesState(true);
+    addChildComponent(lfo2BypassButton);
+
+    lfo1BypassAtt = std::make_unique<ButtonAttachment>(processorRef.apvts, Params::lfo1Bypass, lfo1BypassButton);
+    lfo2BypassAtt = std::make_unique<ButtonAttachment>(processorRef.apvts, Params::lfo2Bypass, lfo2BypassButton);
 
     lfo1RowLabel.setText("LFO 1", juce::dontSendNotification); lfo1RowLabel.setJustificationType(juce::Justification::centredLeft); lfo1RowLabel.setColour(juce::Label::textColourId, juce::Colours::white); lfo1RowLabel.setFont(juce::Font(juce::FontOptions(16.0f))); addChildComponent(lfo1RowLabel);
     lfo2RowLabel.setText("LFO 2", juce::dontSendNotification); lfo2RowLabel.setJustificationType(juce::Justification::centredLeft); lfo2RowLabel.setColour(juce::Label::textColourId, juce::Colours::white); lfo2RowLabel.setFont(juce::Font(juce::FontOptions(16.0f))); addChildComponent(lfo2RowLabel);
 
-    // Options de Sync (mises à jour)
     juce::StringArray syncs = {"Free", "4 bars", "2 bars", "1 bar", "1/1", "1/1 T", "1/1 D", "1/2", "1/2 T", "1/2 D", "1/4", "1/4 T", "1/4 D", "1/8", "1/8 T", "1/8 D", "1/16", "1/16 T", "1/16 D", "5/4", "6/4", "7/4", "9/4", "18/4"};
     juce::StringArray shapes = {"Sine", "Tri", "Saw Up", "Sqr", "Pulse", "Ramp", "Exp Dec", "Exp Rse", "S&H", "Smth Rnd", "Logistic", "Stairs", "Dbl Sine", "SOMA"};
     
+    // On utilise CustomComboBox pour forcer l'ouverture vers le haut
     lfo1SyncBox.addItemList(syncs, 1); addChildComponent(lfo1SyncBox);
     lfo1ShapeBox.addItemList(shapes, 1); addChildComponent(lfo1ShapeBox);
     lfo2SyncBox.addItemList(syncs, 1); addChildComponent(lfo2SyncBox);
@@ -156,7 +172,7 @@ void BlueSwanAudioProcessorEditor::paint(juce::Graphics& g)
     g.setColour(juce::Colours::darkgrey);
     auto area = getLocalBounds().reduced(10);
     area.removeFromTop(40);
-    if (isDrawerOpen) area.removeFromBottom(420); // Ajusté pour le tiroir plus grand
+    if (isDrawerOpen) area.removeFromBottom(400); // Ajusté (400px)
     
     auto leftArea = area.removeFromLeft(150); 
     g.drawVerticalLine((int)leftArea.getRight() + 10, (float)area.getY(), (float)area.getBottom());
@@ -171,7 +187,10 @@ void BlueSwanAudioProcessorEditor::resized()
 {
     auto area = getLocalBounds().reduced(10);
     area.removeFromTop(40);
-    if (isDrawerOpen) area.removeFromBottom(420);
+    if (isDrawerOpen) area.removeFromBottom(400);
+    
+    // Décalage vers le haut pour ne pas être caché par le tiroir fermé
+    area.removeFromBottom(30); 
 
     auto leftArea = area.removeFromLeft(150).reduced(10);
     macroLabel.setBounds(leftArea.removeFromTop(30)); macroSlider.setBounds(leftArea.removeFromTop(120));
@@ -193,16 +212,17 @@ void BlueSwanAudioProcessorEditor::resized()
     drawerButton.setBounds(getLocalBounds().removeFromBottom(25).reduced(0, 2));
 
     if (isDrawerOpen) {
-        auto drawerArea = getLocalBounds().removeFromBottom(420).reduced(10); // Tiroir plus grand
+        auto drawerArea = getLocalBounds().removeFromBottom(400).reduced(10); // Tiroir à 400px
         drawerArea.removeFromBottom(25);
         drawerArea.removeFromTop(15); 
 
         auto matrixArea = drawerArea.removeFromTop(110); 
         int mCols = 14;
         
-        auto labelArea = matrixArea.removeFromLeft(40);
-        matrixLfo1Label.setBounds(labelArea.getX(), labelArea.getY(), 30, 55); matrixLfo1Label.setVisible(true);
-        matrixLfo2Label.setBounds(labelArea.getX(), labelArea.getY() + 55, 30, 55); matrixLfo2Label.setVisible(true);
+        // Agrandissement de la zone de label (60px au lieu de 40) pour éviter le texte vertical
+        auto labelArea = matrixArea.removeFromLeft(60);
+        lfo1BypassButton.setBounds(labelArea.getX(), labelArea.getY(), 50, 55); lfo1BypassButton.setVisible(true);
+        lfo2BypassButton.setBounds(labelArea.getX(), labelArea.getY() + 55, 50, 55); lfo2BypassButton.setVisible(true);
 
         int mWidth = matrixArea.getWidth() / mCols;
         int mRowHeight = matrixArea.getHeight() / 2;
@@ -225,32 +245,27 @@ void BlueSwanAudioProcessorEditor::resized()
 
         drawerArea.removeFromTop(15);
 
-        // --- LFO 1 (Aéré) ---
-        auto lfo1Area = drawerArea.removeFromTop(100); // 100px de haut
+        auto lfo1Area = drawerArea.removeFromTop(100); 
         auto lfo1Row = lfo1Area.removeFromLeft(60);
         lfo1RowLabel.setBounds(lfo1Row.getX(), lfo1Row.getY() + 35, 50, 20); lfo1RowLabel.setVisible(true);
         
-        // Boîtes Sync et Shape plus grandes
         lfo1SyncBox.setBounds(lfo1Area.removeFromLeft(120).reduced(0, 30)); lfo1SyncBox.setVisible(true);
         lfo1ShapeBox.setBounds(lfo1Area.removeFromLeft(120).reduced(0, 30)); lfo1ShapeBox.setVisible(true);
         
-        // Rate
         auto rate1Box = lfo1Area.removeFromLeft(120).reduced(10, 0);
         auto rate1Left = rate1Box.removeFromLeft(50);
         lfo1RateNameLabel.setBounds(rate1Left.removeFromTop(30)); lfo1RateNameLabel.setVisible(true);
         lfo1RateValueLabel.setBounds(rate1Left.removeFromTop(20).reduced(0, 2)); lfo1RateValueLabel.setVisible(true);
         lfo1RateSlider.setBounds(rate1Box); lfo1RateSlider.setVisible(true);
         
-        // PW
         auto pw1Box = lfo1Area.removeFromLeft(120).reduced(10, 0);
         auto pw1Left = pw1Box.removeFromLeft(50);
         lfo1PwNameLabel.setBounds(pw1Left.removeFromTop(30)); lfo1PwNameLabel.setVisible(true);
         lfo1PwValueLabel.setBounds(pw1Left.removeFromTop(20).reduced(0, 2)); lfo1PwValueLabel.setVisible(true);
         lfo1PwSlider.setBounds(pw1Box); lfo1PwSlider.setVisible(true);
 
-        drawerArea.removeFromTop(10); // Espace entre LFO 1 et LFO 2
+        drawerArea.removeFromTop(10);
 
-        // --- LFO 2 (Aéré) ---
         auto lfo2Area = drawerArea.removeFromTop(100);
         auto lfo2Row = lfo2Area.removeFromLeft(60);
         lfo2RowLabel.setBounds(lfo2Row.getX(), lfo2Row.getY() + 35, 50, 20); lfo2RowLabel.setVisible(true);
@@ -274,7 +289,7 @@ void BlueSwanAudioProcessorEditor::resized()
         for (int i = 0; i < 14; ++i) matrixLabels[i].setVisible(false);
         for (int i = 0; i < 14; ++i) { m1Sliders[i].setVisible(false); m2Sliders[i].setVisible(false); }
         
-        matrixLfo1Label.setVisible(false); matrixLfo2Label.setVisible(false);
+        lfo1BypassButton.setVisible(false); lfo2BypassButton.setVisible(false);
         lfo1RowLabel.setVisible(false); lfo2RowLabel.setVisible(false);
         
         lfo1SyncBox.setVisible(false); lfo1ShapeBox.setVisible(false);
