@@ -29,7 +29,6 @@ private:
     juce::Slider m1Sliders[14], m2Sliders[14];
     juce::Label matrixLabels[14];
     
-    // Bypass LFO (remplace les Labels LFO)
     juce::TextButton lfo1BypassButton, lfo2BypassButton;
     
     CustomComboBox lfo1SyncBox, lfo1ShapeBox, lfo2SyncBox, lfo2ShapeBox;
