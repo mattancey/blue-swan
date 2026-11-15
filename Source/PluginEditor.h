@@ -26,22 +26,27 @@ private:
     
     juce::TextButton drawerButton { "MODULATION" };
 
-    juce::Slider m1Sliders[14], m2Sliders[14];
-    juce::Label matrixLabels[14];
+    // Matrice (12 colonnes de sliders)
+    juce::Slider m1Sliders[12], m2Sliders[12];
+    juce::Label matrixLabels[12];
     
-    // On utilise CustomComboBox
-    CustomComboBox lfo1SyncBox, lfo1ShapeBox, lfo2SyncBox, lfo2ShapeBox;
+    // Labels à gauche de la matrice (LFO \n 1)
+    juce::Label matrixLfo1Label, matrixLfo2Label;
+    
+    // UI LFOs
+    juce::ComboBox lfo1SyncBox, lfo1ShapeBox, lfo2SyncBox, lfo2ShapeBox;
     juce::Slider lfo1RateSlider, lfo1PwSlider;
     juce::Slider lfo2RateSlider, lfo2PwSlider;
     juce::Label lfo1RateLabel, lfo1PwLabel;
     juce::Label lfo2RateLabel, lfo2PwLabel;
     
-    juce::Label lfo1RowLabel, lfo2RowLabel; // Labels fixes
+    // Labels à gauche des réglages LFO
+    juce::Label lfo1RowLabel, lfo2RowLabel;
 
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     using ComboAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
     
-    std::unique_ptr<SliderAttachment> mainAtts[12], m1Atts[14], m2Atts[14];
+    std::unique_ptr<SliderAttachment> mainAtts[12], m1Atts[12], m2Atts[12];
     std::unique_ptr<ComboAttachment> polarityAtt;
     std::unique_ptr<ComboAttachment> lfo1SyncAtt, lfo1ShapeAtt, lfo2SyncAtt, lfo2ShapeAtt;
     std::unique_ptr<SliderAttachment> lfo1RateAtt, lfo1PwAtt, lfo2RateAtt, lfo2PwAtt;
