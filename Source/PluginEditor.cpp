@@ -25,7 +25,7 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     drawerButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     drawerButton.onClick = [this]() {
         isDrawerOpen = !isDrawerOpen;
-        targetHeight = isDrawerOpen ? 880.0f : 480.0f; 
+        targetHeight = isDrawerOpen ? 830.0f : 480.0f; // Tiroir réduit à 350px
     };
     addAndMakeVisible(drawerButton);
 
@@ -54,6 +54,7 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     setupMini(m2Sliders[12]); m2Atts[12] = std::make_unique<SliderAttachment>(processorRef.apvts, Params::m2_lfo1, m2Sliders[12]);
     setupMini(m1Sliders[13]); m1Atts[13] = std::make_unique<SliderAttachment>(processorRef.apvts, Params::m1_lfo2, m1Sliders[13]);
 
+    // Bypass Boutons (Fond transparent pour retirer le cadre, texte sur 2 lignes)
     lfo1BypassButton.setButtonText("LFO\n1");
     lfo1BypassButton.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
     lfo1BypassButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
@@ -169,7 +170,7 @@ void BlueSwanAudioProcessorEditor::paint(juce::Graphics& g)
     g.setColour(juce::Colours::darkgrey);
     auto area = getLocalBounds().reduced(10);
     area.removeFromTop(40);
-    if (isDrawerOpen) area.removeFromBottom(400);
+    if (isDrawerOpen) area.removeFromBottom(350); // Ajusté (350px)
     
     auto leftArea = area.removeFromLeft(150); 
     g.drawVerticalLine((int)leftArea.getRight() + 10, (float)area.getY(), (float)area.getBottom());
@@ -184,7 +185,7 @@ void BlueSwanAudioProcessorEditor::resized()
 {
     auto area = getLocalBounds().reduced(10);
     area.removeFromTop(40);
-    if (isDrawerOpen) area.removeFromBottom(400);
+    if (isDrawerOpen) area.removeFromBottom(350); // Ajusté (350px)
     
     area.removeFromBottom(30); 
 
@@ -208,17 +209,17 @@ void BlueSwanAudioProcessorEditor::resized()
     drawerButton.setBounds(getLocalBounds().removeFromBottom(25).reduced(0, 2));
 
     if (isDrawerOpen) {
-        auto drawerArea = getLocalBounds().removeFromBottom(400).reduced(10); 
+        auto drawerArea = getLocalBounds().removeFromBottom(350).reduced(10); 
         drawerArea.removeFromBottom(25);
         drawerArea.removeFromTop(15); 
 
         auto matrixArea = drawerArea.removeFromTop(110); 
         int mCols = 14;
         
-        // REVERTÉ ICI : On repasse de 60 à 40 pour forcer le texte sur plusieurs lignes
+        // Largeur de 40px pour que le texte passe sur 2 lignes proprement (LFO\n1)
         auto labelArea = matrixArea.removeFromLeft(40);
-        lfo1BypassButton.setBounds(labelArea.getX(), labelArea.getY(), 30, 55); lfo1BypassButton.setVisible(true);
-        lfo2BypassButton.setBounds(labelArea.getX(), labelArea.getY() + 55, 30, 55); lfo2BypassButton.setVisible(true);
+        lfo1BypassButton.setBounds(labelArea.getX(), labelArea.getY(), 35, 55); lfo1BypassButton.setVisible(true);
+        lfo2BypassButton.setBounds(labelArea.getX(), labelArea.getY() + 55, 35, 55); lfo2BypassButton.setVisible(true);
 
         int mWidth = matrixArea.getWidth() / mCols;
         int mRowHeight = matrixArea.getHeight() / 2;
@@ -241,43 +242,43 @@ void BlueSwanAudioProcessorEditor::resized()
 
         drawerArea.removeFromTop(15);
 
-        auto lfo1Area = drawerArea.removeFromTop(100); 
+        auto lfo1Area = drawerArea.removeFromTop(90); 
         auto lfo1Row = lfo1Area.removeFromLeft(60);
-        lfo1RowLabel.setBounds(lfo1Row.getX(), lfo1Row.getY() + 35, 50, 20); lfo1RowLabel.setVisible(true);
+        lfo1RowLabel.setBounds(lfo1Row.getX(), lfo1Row.getY() + 30, 50, 20); lfo1RowLabel.setVisible(true);
         
-        lfo1SyncBox.setBounds(lfo1Area.removeFromLeft(120).reduced(0, 30)); lfo1SyncBox.setVisible(true);
-        lfo1ShapeBox.setBounds(lfo1Area.removeFromLeft(120).reduced(0, 30)); lfo1ShapeBox.setVisible(true);
+        lfo1SyncBox.setBounds(lfo1Area.removeFromLeft(120).reduced(0, 25)); lfo1SyncBox.setVisible(true);
+        lfo1ShapeBox.setBounds(lfo1Area.removeFromLeft(120).reduced(0, 25)); lfo1ShapeBox.setVisible(true);
         
         auto rate1Box = lfo1Area.removeFromLeft(120).reduced(10, 0);
         auto rate1Left = rate1Box.removeFromLeft(50);
-        lfo1RateNameLabel.setBounds(rate1Left.removeFromTop(30)); lfo1RateNameLabel.setVisible(true);
+        lfo1RateNameLabel.setBounds(rate1Left.removeFromTop(25)); lfo1RateNameLabel.setVisible(true);
         lfo1RateValueLabel.setBounds(rate1Left.removeFromTop(20).reduced(0, 2)); lfo1RateValueLabel.setVisible(true);
         lfo1RateSlider.setBounds(rate1Box); lfo1RateSlider.setVisible(true);
         
         auto pw1Box = lfo1Area.removeFromLeft(120).reduced(10, 0);
         auto pw1Left = pw1Box.removeFromLeft(50);
-        lfo1PwNameLabel.setBounds(pw1Left.removeFromTop(30)); lfo1PwNameLabel.setVisible(true);
+        lfo1PwNameLabel.setBounds(pw1Left.removeFromTop(25)); lfo1PwNameLabel.setVisible(true);
         lfo1PwValueLabel.setBounds(pw1Left.removeFromTop(20).reduced(0, 2)); lfo1PwValueLabel.setVisible(true);
         lfo1PwSlider.setBounds(pw1Box); lfo1PwSlider.setVisible(true);
 
-        drawerArea.removeFromTop(10);
+        drawerArea.removeFromTop(5);
 
-        auto lfo2Area = drawerArea.removeFromTop(100);
+        auto lfo2Area = drawerArea.removeFromTop(90);
         auto lfo2Row = lfo2Area.removeFromLeft(60);
-        lfo2RowLabel.setBounds(lfo2Row.getX(), lfo2Row.getY() + 35, 50, 20); lfo2RowLabel.setVisible(true);
+        lfo2RowLabel.setBounds(lfo2Row.getX(), lfo2Row.getY() + 30, 50, 20); lfo2RowLabel.setVisible(true);
         
-        lfo2SyncBox.setBounds(lfo2Area.removeFromLeft(120).reduced(0, 30)); lfo2SyncBox.setVisible(true);
-        lfo2ShapeBox.setBounds(lfo2Area.removeFromLeft(120).reduced(0, 30)); lfo2ShapeBox.setVisible(true);
+        lfo2SyncBox.setBounds(lfo2Area.removeFromLeft(120).reduced(0, 25)); lfo2SyncBox.setVisible(true);
+        lfo2ShapeBox.setBounds(lfo2Area.removeFromLeft(120).reduced(0, 25)); lfo2ShapeBox.setVisible(true);
         
         auto rate2Box = lfo2Area.removeFromLeft(120).reduced(10, 0);
         auto rate2Left = rate2Box.removeFromLeft(50);
-        lfo2RateNameLabel.setBounds(rate2Left.removeFromTop(30)); lfo2RateNameLabel.setVisible(true);
+        lfo2RateNameLabel.setBounds(rate2Left.removeFromTop(25)); lfo2RateNameLabel.setVisible(true);
         lfo2RateValueLabel.setBounds(rate2Left.removeFromTop(20).reduced(0, 2)); lfo2RateValueLabel.setVisible(true);
         lfo2RateSlider.setBounds(rate2Box); lfo2RateSlider.setVisible(true);
         
         auto pw2Box = lfo2Area.removeFromLeft(120).reduced(10, 0);
         auto pw2Left = pw2Box.removeFromLeft(50);
-        lfo2PwNameLabel.setBounds(pw2Left.removeFromTop(30)); lfo2PwNameLabel.setVisible(true);
+        lfo2PwNameLabel.setBounds(pw2Left.removeFromTop(25)); lfo2PwNameLabel.setVisible(true);
         lfo2PwValueLabel.setBounds(pw2Left.removeFromTop(20).reduced(0, 2)); lfo2PwValueLabel.setVisible(true);
         lfo2PwSlider.setBounds(pw2Box); lfo2PwSlider.setVisible(true);
 
