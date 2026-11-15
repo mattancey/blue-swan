@@ -108,7 +108,6 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
         lfo1Smoothed.setTargetValue(lfo1Value);
         lfo2Smoothed.setTargetValue(lfo2Value);
         
-        // Application du bypass
         float l1 = p.lfo1Bypass ? 0.0f : lfo1Smoothed.getNextValue();
         float l2 = p.lfo2Bypass ? 0.0f : lfo2Smoothed.getNextValue();
 
