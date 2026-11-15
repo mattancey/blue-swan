@@ -60,7 +60,8 @@ namespace Params
         layout.add(std::make_unique<juce::AudioParameterChoice>(polarity, "Polarity", juce::StringArray{"Positive", "Negative"}, 0));
         layout.add(std::make_unique<juce::AudioParameterFloat>(wetGain, "Wet Gain", juce::NormalisableRange<float>(0.0f, 2.0f, 0.01f), 1.0f));
 
-        juce::StringArray syncOpts = {"Free", "1/1", "1/1 T", "1/1 D", "1/2", "1/2 T", "1/2 D", "1/4", "1/4 T", "1/4 D", "1/8", "1/8 T", "1/8 D", "1/16", "1/16 T", "1/16 D"};
+        // Nouvelles divisions rythmiques ajoutées
+        juce::StringArray syncOpts = {"Free", "4 bars", "2 bars", "1 bar", "1/1", "1/1 T", "1/1 D", "1/2", "1/2 T", "1/2 D", "1/4", "1/4 T", "1/4 D", "1/8", "1/8 T", "1/8 D", "1/16", "1/16 T", "1/16 D", "5/4", "6/4", "7/4", "9/4", "18/4"};
         juce::StringArray shapeOpts = {"Sine", "Tri", "Saw Up", "Sqr", "Pulse", "Ramp", "Exp Dec", "Exp Rse", "S&H", "Smth Rnd", "Logistic", "Stairs", "Dbl Sine", "SOMA"};
         
         layout.add(std::make_unique<juce::AudioParameterChoice>(lfo1Sync, "LFO1 Sync", syncOpts, 0));
