@@ -1,6 +1,7 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "PluginProcessor.h"
+#include "UI/Widgets.h"
 
 class BlueSwanAudioProcessorEditor : public juce::AudioProcessorEditor, public juce::Timer
 {
@@ -25,24 +26,25 @@ private:
     
     juce::TextButton drawerButton { "MODULATION" };
 
-    // Matrice (14 colonnes pour tout faire tenir)
     juce::Slider m1Sliders[14], m2Sliders[14];
     juce::Label matrixLabels[14];
-    juce::Label lfo1NameLabel, lfo2NameLabel;
     
-    juce::ComboBox lfo1SyncBox, lfo1ShapeBox, lfo2SyncBox, lfo2ShapeBox;
-    juce::Slider lfo1RateSlider, lfo1ChaosSlider, lfo1PwSlider;
-    juce::Slider lfo2RateSlider, lfo2ChaosSlider, lfo2PwSlider;
-    juce::Label lfo1RateLabel, lfo1ChaosLabel, lfo1PwLabel;
-    juce::Label lfo2RateLabel, lfo2ChaosLabel, lfo2PwLabel;
+    // On utilise CustomComboBox
+    CustomComboBox lfo1SyncBox, lfo1ShapeBox, lfo2SyncBox, lfo2ShapeBox;
+    juce::Slider lfo1RateSlider, lfo1PwSlider;
+    juce::Slider lfo2RateSlider, lfo2PwSlider;
+    juce::Label lfo1RateLabel, lfo1PwLabel;
+    juce::Label lfo2RateLabel, lfo2PwLabel;
+    
+    juce::Label lfo1RowLabel, lfo2RowLabel; // Labels fixes
 
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     using ComboAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
     
-    std::unique_ptr<SliderAttachment> mainAtts[12], m1Atts[14], m2Atts[14]; // Taille 14 ici
+    std::unique_ptr<SliderAttachment> mainAtts[12], m1Atts[14], m2Atts[14];
     std::unique_ptr<ComboAttachment> polarityAtt;
     std::unique_ptr<ComboAttachment> lfo1SyncAtt, lfo1ShapeAtt, lfo2SyncAtt, lfo2ShapeAtt;
-    std::unique_ptr<SliderAttachment> lfo1RateAtt, lfo1ChaosAtt, lfo1PwAtt, lfo2RateAtt, lfo2ChaosAtt, lfo2PwAtt;
+    std::unique_ptr<SliderAttachment> lfo1RateAtt, lfo1PwAtt, lfo2RateAtt, lfo2PwAtt;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BlueSwanAudioProcessorEditor)
 };
