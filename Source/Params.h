@@ -20,16 +20,13 @@ namespace Params
     inline constexpr auto lfo1Sync = "lfo1Sync";
     inline constexpr auto lfo1Rate = "lfo1Rate";
     inline constexpr auto lfo1Shape = "lfo1Shape";
-    inline constexpr auto lfo1Chaos = "lfo1Chaos";
     inline constexpr auto lfo1Pw = "lfo1Pw";
 
     inline constexpr auto lfo2Sync = "lfo2Sync";
     inline constexpr auto lfo2Rate = "lfo2Rate";
     inline constexpr auto lfo2Shape = "lfo2Shape";
-    inline constexpr auto lfo2Chaos = "lfo2Chaos";
     inline constexpr auto lfo2Pw = "lfo2Pw";
 
-    // Matrice (12 paramètres + 2 croisements LFO)
     inline constexpr auto m1_pitch = "m1_pitch"; inline constexpr auto m2_pitch = "m2_pitch";
     inline constexpr auto m1_feed = "m1_feed";   inline constexpr auto m2_feed = "m2_feed";
     inline constexpr auto m1_incut = "m1_incut"; inline constexpr auto m2_incut = "m2_incut";
@@ -42,10 +39,8 @@ namespace Params
     inline constexpr auto m1_drywet = "m1_drywet"; inline constexpr auto m2_drywet = "m2_drywet";
     inline constexpr auto m1_wetgain = "m1_wetgain"; inline constexpr auto m2_wetgain = "m2_wetgain";
     inline constexpr auto m1_macro = "m1_macro"; inline constexpr auto m2_macro = "m2_macro";
-    
-    // MODULATION CROISEE UNIQUEMENT
-    inline constexpr auto m1_lfo2 = "m1_lfo2"; // LFO 1 module LFO 2
-    inline constexpr auto m2_lfo1 = "m2_lfo1"; // LFO 2 module LFO 1
+    inline constexpr auto m1_lfo2 = "m1_lfo2"; 
+    inline constexpr auto m2_lfo1 = "m2_lfo1"; 
 
     inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     {
@@ -66,18 +61,16 @@ namespace Params
         layout.add(std::make_unique<juce::AudioParameterFloat>(wetGain, "Wet Gain", juce::NormalisableRange<float>(0.0f, 2.0f, 0.01f), 1.0f));
 
         juce::StringArray syncOpts = {"Free", "1/1", "1/1 T", "1/1 D", "1/2", "1/2 T", "1/2 D", "1/4", "1/4 T", "1/4 D", "1/8", "1/8 T", "1/8 D", "1/16", "1/16 T", "1/16 D"};
-        juce::StringArray shapeOpts = {"Sine", "Tri", "Saw Up", "Saw Dn", "Sqr", "Pulse", "Ramp", "Exp Dec", "Exp Rse", "S&H", "Smth Rnd", "Logistic", "Stairs", "Dbl Sine", "SOMA"};
+        juce::StringArray shapeOpts = {"Sine", "Tri", "Saw Up", "Sqr", "Pulse", "Ramp", "Exp Dec", "Exp Rse", "S&H", "Smth Rnd", "Logistic", "Stairs", "Dbl Sine", "SOMA"};
         
         layout.add(std::make_unique<juce::AudioParameterChoice>(lfo1Sync, "LFO1 Sync", syncOpts, 0));
         layout.add(std::make_unique<juce::AudioParameterFloat>(lfo1Rate, "LFO1 Rate", juce::NormalisableRange<float>(0.01f, 100.0f, 0.01f, 0.3f), 1.0f));
         layout.add(std::make_unique<juce::AudioParameterChoice>(lfo1Shape, "LFO1 Shape", shapeOpts, 0));
-        layout.add(std::make_unique<juce::AudioParameterFloat>(lfo1Chaos, "LFO1 Chaos", juce::NormalisableRange<float>(0.1f, 4.0f, 0.01f), 3.6f));
         layout.add(std::make_unique<juce::AudioParameterFloat>(lfo1Pw, "LFO1 PW", juce::NormalisableRange<float>(0.05f, 0.95f, 0.01f), 0.5f));
 
         layout.add(std::make_unique<juce::AudioParameterChoice>(lfo2Sync, "LFO2 Sync", syncOpts, 0));
         layout.add(std::make_unique<juce::AudioParameterFloat>(lfo2Rate, "LFO2 Rate", juce::NormalisableRange<float>(0.01f, 100.0f, 0.01f, 0.3f), 1.0f));
         layout.add(std::make_unique<juce::AudioParameterChoice>(lfo2Shape, "LFO2 Shape", shapeOpts, 0));
-        layout.add(std::make_unique<juce::AudioParameterFloat>(lfo2Chaos, "LFO2 Chaos", juce::NormalisableRange<float>(0.1f, 4.0f, 0.01f), 3.6f));
         layout.add(std::make_unique<juce::AudioParameterFloat>(lfo2Pw, "LFO2 PW", juce::NormalisableRange<float>(0.05f, 0.95f, 0.01f), 0.5f));
 
         auto addDepth = [&](const juce::String& id, const juce::String& name) {
@@ -96,8 +89,6 @@ namespace Params
         addDepth(m1_drywet, "M1 DryWet"); addDepth(m2_drywet, "M2 DryWet");
         addDepth(m1_wetgain, "M1 WetGain"); addDepth(m2_wetgain, "M2 WetGain");
         addDepth(m1_macro, "M1 Macro"); addDepth(m2_macro, "M2 Macro");
-        
-        // Croisements
         addDepth(m1_lfo2, "M1 LFO2"); 
         addDepth(m2_lfo1, "M2 LFO1"); 
 
