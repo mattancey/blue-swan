@@ -15,7 +15,6 @@ public:
         juce::AudioBuffer<float> buffer(2, 512);
         buffer.clear();
         
-        // Création d'un ModParams avec des valeurs neutres pour le test
         ModParams p;
         p.pitch = 0.0f;
         p.feedback = 0.85f;
@@ -33,7 +32,7 @@ public:
         p.lfo1Sync = 0; p.lfo2Sync = 0;
         p.lfo1Shape = 0; p.lfo2Shape = 0;
         p.lfo1Rate = 1.0f; p.lfo2Rate = 1.0f;
-        p.lfo1Chaos = 3.6f; p.lfo2Chaos = 3.6f;
+        // p.lfo1Chaos et p.lfo2Chaos ont été retirés de ModParams
         p.lfo1Pw = 0.5f; p.lfo2Pw = 0.5f;
         
         p.m1_pitch = 0.0f; p.m2_pitch = 0.0f;
@@ -48,8 +47,8 @@ public:
         p.m1_drywet = 0.0f; p.m2_drywet = 0.0f;
         p.m1_wetgain = 0.0f; p.m2_wetgain = 0.0f;
         p.m1_macro = 0.0f; p.m2_macro = 0.0f;
+        p.m1_lfo2 = 0.0f; p.m2_lfo1 = 0.0f;
         
-        // Appel avec les 4 arguments attendus
         res.process(buffer, p, 120.0, false);
         
         for (int ch = 0; ch < 2; ++ch)
