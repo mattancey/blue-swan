@@ -33,7 +33,10 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     p.macro = get(Params::macro);
 
     p.lfo1Shape = (int)get(Params::lfo1Shape); p.lfo1Sync = (int)get(Params::lfo1Sync); p.lfo1Rate = get(Params::lfo1Rate); p.lfo1Pw = get(Params::lfo1Pw);
+    p.lfo1Bypass = get(Params::lfo1Bypass) > 0.5f;
+    
     p.lfo2Shape = (int)get(Params::lfo2Shape); p.lfo2Sync = (int)get(Params::lfo2Sync); p.lfo2Rate = get(Params::lfo2Rate); p.lfo2Pw = get(Params::lfo2Pw);
+    p.lfo2Bypass = get(Params::lfo2Bypass) > 0.5f;
 
     p.m1_pitch = get(Params::m1_pitch); p.m2_pitch = get(Params::m2_pitch);
     p.m1_feed = get(Params::m1_feed); p.m2_feed = get(Params::m2_feed);
