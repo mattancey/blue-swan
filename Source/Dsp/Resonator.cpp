@@ -2,6 +2,8 @@
 
 Resonator::Resonator() { 
     gateSmoothed.setCurrentAndTargetValue(0.0f); 
+    lfo1Smoothed.setCurrentAndTargetValue(0.0f);
+    lfo2Smoothed.setCurrentAndTargetValue(0.0f);
     jitterGen.seed(std::random_device{}()); 
 }
 
@@ -21,7 +23,10 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
     }
     gateSmoothed.reset(sampleRate, 2.0);
     gateSmoothed.setCurrentAndTargetValue(0.0f);
+    
     lfo1.prepare(sampleRate); lfo2.prepare(sampleRate);
+    lfo1Smoothed.reset(sampleRate, 0.002); // 2ms d'anti-clic
+    lfo2Smoothed.reset(sampleRate, 0.002);
     lfo1Value = 0.0f; lfo2Value = 0.0f;
 }
 
@@ -34,6 +39,8 @@ void Resonator::reset() {
     gateSmoothed.setCurrentAndTargetValue(0.0f);
     jitterState[0] = 0.0f; jitterState[1] = 0.0f;
     lfo1Value = 0.0f; lfo2Value = 0.0f;
+    lfo1Smoothed.setCurrentAndTargetValue(0.0f);
+    lfo2Smoothed.setCurrentAndTargetValue(0.0f);
 }
 
 void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, double bpm, bool isNegative)
@@ -59,14 +66,13 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
     float lfo1Phase = (p.lfo1Sync > 0) ? (p.lfo1Rate / 100.0f) * 360.0f : 0.0f;
     float lfo2Phase = (p.lfo2Sync > 0) ? (p.lfo2Rate / 100.0f) * 360.0f : 0.0f;
 
-    lfo1.setShape(p.lfo1Shape); lfo1.setChaos(p.lfo1Chaos); lfo1.setPulseWidth(p.lfo1Pw);
-    lfo2.setShape(p.lfo2Shape); lfo2.setChaos(p.lfo2Chaos); lfo2.setPulseWidth(p.lfo2Pw);
+    lfo1.setShape(p.lfo1Shape); lfo1.setPulseWidth(p.lfo1Pw);
+    lfo2.setShape(p.lfo2Shape); lfo2.setPulseWidth(p.lfo2Pw);
 
     float loopOutputs[2] = { 0.0f, 0.0f };
 
     for (int i = 0; i < numSamples; ++i)
     {
-        // CROISEMENT UNIQUEMENT : LFO 2 modifie LFO 1, et LFO 1 modifie LFO 2
         float modLfo1 = lfo2Value * p.m2_lfo1 * 50.0f;
         float modLfo2 = lfo1Value * p.m1_lfo2 * 50.0f;
         
@@ -76,15 +82,21 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
         lfo1Value = lfo1.process(lfo1Hz, lfo1Phase);
         lfo2Value = lfo2.process(lfo2Hz, lfo2Phase);
 
+        // On lisse les valeurs des LFO pour supprimer les clics des formes carrées
+        lfo1Smoothed.setTargetValue(lfo1Value);
+        lfo2Smoothed.setTargetValue(lfo2Value);
+        float l1 = lfo1Smoothed.getNextValue();
+        float l2 = lfo2Smoothed.getNextValue();
+
         auto mod = [&](float base, float d1, float d2, float maxVal) {
-            return juce::jlimit(0.0f, maxVal, base + (lfo1Value * d1) + (lfo2Value * d2));
+            return juce::jlimit(0.0f, maxVal, base + (l1 * d1) + (l2 * d2));
         };
 
         float mMacro = mod(p.macro, p.m1_macro, p.m2_macro, 1.0f);
         float macroBoost = mMacro > 0.001f ? mMacro : 0.0f;
         
         float mPitch = mod(p.pitch + (macroBoost * 24.0f), p.m1_pitch * 24.0f, p.m2_pitch * 24.0f, 36.0f);
-        if (p.pitch + (lfo1Value*p.m1_pitch) + (lfo2Value*p.m2_pitch) < 0) mPitch = -mPitch; 
+        if (p.pitch + (l1*p.m1_pitch) + (l2*p.m2_pitch) < 0) mPitch = -mPitch; 
         
         float mFb = mod(p.feedback + (macroBoost * 0.1f), p.m1_feed, p.m2_feed, 0.99f);
         float mInc = mod(p.inputCutoff * (1.0f + macroBoost * 3.0f), p.m1_incut * 10000.0f, p.m2_incut * 10000.0f, 20000.0f);
