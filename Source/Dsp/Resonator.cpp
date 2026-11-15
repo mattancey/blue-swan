@@ -50,15 +50,38 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
     const float polarityMult = isNegative ? -1.0f : 1.0f;
 
     auto getLfoHz = [&](int syncIdx, float rate) {
-        if (syncIdx == 0) return rate;
+        if (syncIdx == 0) return rate; // Free
+        
         float beatsPerSec = (float)bpm / 60.0f;
-        float mult = 1.0f;
-        if (syncIdx == 1) mult = 1.0f; else if (syncIdx == 2) mult = 1.5f; else if (syncIdx == 3) mult = 0.666f;
-        else if (syncIdx == 4) mult = 2.0f; else if (syncIdx == 5) mult = 3.0f; else if (syncIdx == 6) mult = 1.333f;
-        else if (syncIdx == 7) mult = 4.0f; else if (syncIdx == 8) mult = 6.0f; else if (syncIdx == 9) mult = 2.666f;
-        else if (syncIdx == 10) mult = 8.0f; else if (syncIdx == 11) mult = 12.0f; else if (syncIdx == 12) mult = 5.333f;
-        else if (syncIdx == 13) mult = 16.0f; else if (syncIdx == 14) mult = 24.0f; else if (syncIdx == 15) mult = 10.666f;
-        return beatsPerSec * mult;
+        float beatsPerCycle = 1.0f;
+        
+        switch (syncIdx) {
+            case 1: beatsPerCycle = 16.0f; break; // 4 bars
+            case 2: beatsPerCycle = 8.0f; break;  // 2 bars
+            case 3: beatsPerCycle = 4.0f; break;  // 1 bar
+            case 4: beatsPerCycle = 4.0f; break;  // 1/1
+            case 5: beatsPerCycle = 4.0f * (2.0f/3.0f); break; // 1/1 T
+            case 6: beatsPerCycle = 4.0f * 1.5f; break; // 1/1 D
+            case 7: beatsPerCycle = 2.0f; break; // 1/2
+            case 8: beatsPerCycle = 2.0f * (2.0f/3.0f); break; // 1/2 T
+            case 9: beatsPerCycle = 2.0f * 1.5f; break; // 1/2 D
+            case 10: beatsPerCycle = 1.0f; break; // 1/4
+            case 11: beatsPerCycle = 2.0f/3.0f; break; // 1/4 T
+            case 12: beatsPerCycle = 1.5f; break; // 1/4 D
+            case 13: beatsPerCycle = 0.5f; break; // 1/8
+            case 14: beatsPerCycle = 0.5f * (2.0f/3.0f); break; // 1/8 T
+            case 15: beatsPerCycle = 0.5f * 1.5f; break; // 1/8 D
+            case 16: beatsPerCycle = 0.25f; break; // 1/16
+            case 17: beatsPerCycle = 0.25f * (2.0f/3.0f); break; // 1/16 T
+            case 18: beatsPerCycle = 0.25f * 1.5f; break; // 1/16 D
+            case 19: beatsPerCycle = 5.0f; break; // 5/4
+            case 20: beatsPerCycle = 6.0f; break; // 6/4
+            case 21: beatsPerCycle = 7.0f; break; // 7/4
+            case 22: beatsPerCycle = 9.0f; break; // 9/4
+            case 23: beatsPerCycle = 18.0f; break; // 18/4
+            default: beatsPerCycle = 1.0f; break;
+        }
+        return beatsPerSec / beatsPerCycle;
     };
 
     float lfo1HzBase = getLfoHz(p.lfo1Sync, p.lfo1Rate);
@@ -82,7 +105,6 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
         lfo1Value = lfo1.process(lfo1Hz, lfo1Phase);
         lfo2Value = lfo2.process(lfo2Hz, lfo2Phase);
 
-        // On lisse les valeurs des LFO pour supprimer les clics des formes carrées
         lfo1Smoothed.setTargetValue(lfo1Value);
         lfo2Smoothed.setTargetValue(lfo2Value);
         float l1 = lfo1Smoothed.getNextValue();
