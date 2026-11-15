@@ -32,8 +32,8 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     p.jitter = get(Params::jitter); p.crossFb = get(Params::crossFb); p.selfMod = get(Params::selfMod); p.wetGain = get(Params::wetGain);
     p.macro = get(Params::macro);
 
-    p.lfo1Shape = (int)get(Params::lfo1Shape); p.lfo1Sync = (int)get(Params::lfo1Sync); p.lfo1Rate = get(Params::lfo1Rate); p.lfo1Chaos = get(Params::lfo1Chaos); p.lfo1Pw = get(Params::lfo1Pw);
-    p.lfo2Shape = (int)get(Params::lfo2Shape); p.lfo2Sync = (int)get(Params::lfo2Sync); p.lfo2Rate = get(Params::lfo2Rate); p.lfo2Chaos = get(Params::lfo2Chaos); p.lfo2Pw = get(Params::lfo2Pw);
+    p.lfo1Shape = (int)get(Params::lfo1Shape); p.lfo1Sync = (int)get(Params::lfo1Sync); p.lfo1Rate = get(Params::lfo1Rate); p.lfo1Pw = get(Params::lfo1Pw);
+    p.lfo2Shape = (int)get(Params::lfo2Shape); p.lfo2Sync = (int)get(Params::lfo2Sync); p.lfo2Rate = get(Params::lfo2Rate); p.lfo2Pw = get(Params::lfo2Pw);
 
     p.m1_pitch = get(Params::m1_pitch); p.m2_pitch = get(Params::m2_pitch);
     p.m1_feed = get(Params::m1_feed); p.m2_feed = get(Params::m2_feed);
@@ -48,7 +48,6 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     p.m1_wetgain = get(Params::m1_wetgain); p.m2_wetgain = get(Params::m2_wetgain);
     p.m1_macro = get(Params::m1_macro); p.m2_macro = get(Params::m2_macro);
     
-    // Croisements uniquement
     p.m1_lfo2 = get(Params::m1_lfo2);
     p.m2_lfo1 = get(Params::m2_lfo1);
 
