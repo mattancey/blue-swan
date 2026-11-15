@@ -25,7 +25,7 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     drawerButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     drawerButton.onClick = [this]() {
         isDrawerOpen = !isDrawerOpen;
-        targetHeight = isDrawerOpen ? 880.0f : 480.0f; // Tiroir réduit à 400px
+        targetHeight = isDrawerOpen ? 880.0f : 480.0f; 
     };
     addAndMakeVisible(drawerButton);
 
@@ -54,7 +54,6 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     setupMini(m2Sliders[12]); m2Atts[12] = std::make_unique<SliderAttachment>(processorRef.apvts, Params::m2_lfo1, m2Sliders[12]);
     setupMini(m1Sliders[13]); m1Atts[13] = std::make_unique<SliderAttachment>(processorRef.apvts, Params::m1_lfo2, m1Sliders[13]);
 
-    // LFO 1 Bypass (Bouton)
     lfo1BypassButton.setButtonText("LFO\n1");
     lfo1BypassButton.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
     lfo1BypassButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
@@ -62,7 +61,6 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     lfo1BypassButton.setClickingTogglesState(true);
     addChildComponent(lfo1BypassButton);
 
-    // LFO 2 Bypass (Bouton)
     lfo2BypassButton.setButtonText("LFO\n2");
     lfo2BypassButton.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
     lfo2BypassButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
@@ -79,7 +77,6 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     juce::StringArray syncs = {"Free", "4 bars", "2 bars", "1 bar", "1/1", "1/1 T", "1/1 D", "1/2", "1/2 T", "1/2 D", "1/4", "1/4 T", "1/4 D", "1/8", "1/8 T", "1/8 D", "1/16", "1/16 T", "1/16 D", "5/4", "6/4", "7/4", "9/4", "18/4"};
     juce::StringArray shapes = {"Sine", "Tri", "Saw Up", "Sqr", "Pulse", "Ramp", "Exp Dec", "Exp Rse", "S&H", "Smth Rnd", "Logistic", "Stairs", "Dbl Sine", "SOMA"};
     
-    // On utilise CustomComboBox pour forcer l'ouverture vers le haut
     lfo1SyncBox.addItemList(syncs, 1); addChildComponent(lfo1SyncBox);
     lfo1ShapeBox.addItemList(shapes, 1); addChildComponent(lfo1ShapeBox);
     lfo2SyncBox.addItemList(syncs, 1); addChildComponent(lfo2SyncBox);
@@ -172,7 +169,7 @@ void BlueSwanAudioProcessorEditor::paint(juce::Graphics& g)
     g.setColour(juce::Colours::darkgrey);
     auto area = getLocalBounds().reduced(10);
     area.removeFromTop(40);
-    if (isDrawerOpen) area.removeFromBottom(400); // Ajusté (400px)
+    if (isDrawerOpen) area.removeFromBottom(400);
     
     auto leftArea = area.removeFromLeft(150); 
     g.drawVerticalLine((int)leftArea.getRight() + 10, (float)area.getY(), (float)area.getBottom());
@@ -189,7 +186,6 @@ void BlueSwanAudioProcessorEditor::resized()
     area.removeFromTop(40);
     if (isDrawerOpen) area.removeFromBottom(400);
     
-    // Décalage vers le haut pour ne pas être caché par le tiroir fermé
     area.removeFromBottom(30); 
 
     auto leftArea = area.removeFromLeft(150).reduced(10);
@@ -212,17 +208,17 @@ void BlueSwanAudioProcessorEditor::resized()
     drawerButton.setBounds(getLocalBounds().removeFromBottom(25).reduced(0, 2));
 
     if (isDrawerOpen) {
-        auto drawerArea = getLocalBounds().removeFromBottom(400).reduced(10); // Tiroir à 400px
+        auto drawerArea = getLocalBounds().removeFromBottom(400).reduced(10); 
         drawerArea.removeFromBottom(25);
         drawerArea.removeFromTop(15); 
 
         auto matrixArea = drawerArea.removeFromTop(110); 
         int mCols = 14;
         
-        // Agrandissement de la zone de label (60px au lieu de 40) pour éviter le texte vertical
-        auto labelArea = matrixArea.removeFromLeft(60);
-        lfo1BypassButton.setBounds(labelArea.getX(), labelArea.getY(), 50, 55); lfo1BypassButton.setVisible(true);
-        lfo2BypassButton.setBounds(labelArea.getX(), labelArea.getY() + 55, 50, 55); lfo2BypassButton.setVisible(true);
+        // REVERTÉ ICI : On repasse de 60 à 40 pour forcer le texte sur plusieurs lignes
+        auto labelArea = matrixArea.removeFromLeft(40);
+        lfo1BypassButton.setBounds(labelArea.getX(), labelArea.getY(), 30, 55); lfo1BypassButton.setVisible(true);
+        lfo2BypassButton.setBounds(labelArea.getX(), labelArea.getY() + 55, 30, 55); lfo2BypassButton.setVisible(true);
 
         int mWidth = matrixArea.getWidth() / mCols;
         int mRowHeight = matrixArea.getHeight() / 2;
