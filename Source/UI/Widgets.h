@@ -12,7 +12,7 @@ inline void setupRotarySlider(juce::Slider& s, juce::Label& l, const juce::Strin
     parent.addAndMakeVisible(l);
 }
 
-// Forcer les menus à s'ouvrir vers le HAUT
+// Force le menu à s'ouvrir vers le haut
 class CustomComboBox : public juce::ComboBox
 {
 public:
@@ -22,7 +22,6 @@ public:
         m.addItemList(getItems(), 1);
         
         auto area = getScreenBounds();
-        // On place la zone cible AU-DESSUS du bouton pour forcer l'ouverture vers le haut
         auto targetArea = juce::Rectangle<int>(area.getX(), area.getY() - area.getHeight(), area.getWidth(), area.getHeight());
         
         m.showMenuAsync(juce::PopupMenu::Options()
@@ -30,7 +29,7 @@ public:
             .withMinimumWidth(getWidth())
             .withMaximumNumColumns(1),
             [this](int result) {
-                if (result > 0) setSelectedId(result);
+                if (result > 0) setSelectedId(result, juce::sendNotification);
             });
     }
 };
