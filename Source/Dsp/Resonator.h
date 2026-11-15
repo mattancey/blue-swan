@@ -9,6 +9,7 @@ struct ModParams {
     float pitch, feedback, pluck, inharm, inputCutoff, loopCutoff, dryWet, jitter, crossFb, selfMod, wetGain, macro;
     int lfo1Shape, lfo1Sync, lfo2Shape, lfo2Sync;
     float lfo1Rate, lfo1Pw, lfo2Rate, lfo2Pw;
+    bool lfo1Bypass, lfo2Bypass; // Bypass ajoutés
     float m1_pitch, m1_feed, m1_incut, m1_loopcut, m1_hbeta, m1_inharm, m1_cross, m1_self, m1_drift, m1_drywet, m1_wetgain, m1_macro;
     float m2_pitch, m2_feed, m2_incut, m2_loopcut, m2_hbeta, m2_inharm, m2_cross, m2_self, m2_drift, m2_drywet, m2_wetgain, m2_macro;
     float m1_lfo2, m2_lfo1; 
@@ -66,7 +67,6 @@ private:
     juce::SmoothedValue<float> gateSmoothed;
     LFO lfo1, lfo2;
     
-    // Variables lissées pour l'anti-clic
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> lfo1Smoothed;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> lfo2Smoothed;
     
