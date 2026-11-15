@@ -12,15 +12,20 @@ inline void setupRotarySlider(juce::Slider& s, juce::Label& l, const juce::Strin
     parent.addAndMakeVisible(l);
 }
 
+// Force le menu à s'ouvrir vers le haut
 class CustomComboBox : public juce::ComboBox
 {
 public:
     void showPopup() override
     {
         juce::PopupMenu m;
-        m.addItemList(getItems(), 1);
+        // On reconstruit le menu élément par élément
+        for (int i = 1; i <= getNumItems(); ++i) {
+            m.addItem(i, getItemText(i - 1));
+        }
         
         auto area = getScreenBounds();
+        // On cible une zone AU-DESSUS du bouton pour forcer l'ouverture vers le haut
         auto targetArea = juce::Rectangle<int>(area.getX(), area.getY() - area.getHeight(), area.getWidth(), area.getHeight());
         
         m.showMenuAsync(juce::PopupMenu::Options()
