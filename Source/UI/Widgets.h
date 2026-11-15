@@ -12,7 +12,6 @@ inline void setupRotarySlider(juce::Slider& s, juce::Label& l, const juce::Strin
     parent.addAndMakeVisible(l);
 }
 
-// Force le menu à s'ouvrir vers le haut
 class CustomComboBox : public juce::ComboBox
 {
 public:
