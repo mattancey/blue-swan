@@ -33,7 +33,6 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
     lfo1Smoothed.reset(sampleRate, 0.002); 
     lfo2Smoothed.reset(sampleRate, 0.002);
     
-    // Lissage des paramètres de base pour retrouver la finesse du tanh (20 ms)
     mFbSmoothed.reset(sampleRate, 0.02);
     mPitchSmoothed.reset(sampleRate, 0.02);
     mDryWetSmoothed.reset(sampleRate, 0.02);
@@ -117,7 +116,6 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
         float mMacro = mod(p.macro, p.m1_macro, p.m2_macro, 1.0f);
         float macroBoost = mMacro > 0.001f ? mMacro : 0.0f;
         
-        // Calcul des cibles modulées
         float targetPitch = mod(p.pitch + (macroBoost * 24.0f), p.m1_pitch * 24.0f, p.m2_pitch * 24.0f, 36.0f);
         if (p.pitch + (l1*p.m1_pitch) + (l2*p.m2_pitch) < 0) targetPitch = -targetPitch; 
         
@@ -133,7 +131,6 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
         float mSelf = mod(p.selfMod, p.m1_self, p.m2_self, 1.0f);
         float mDrift = mod(p.jitter, p.m1_drift, p.m2_drift, 1.0f);
 
-        // Lissage des paramètres pour retrouver le son de la V0.4
         mPitchSmoothed.setTargetValue(targetPitch);
         mFbSmoothed.setTargetValue(targetFb);
         mDryWetSmoothed.setTargetValue(targetDryWet);
@@ -146,8 +143,7 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
 
         float delaySamples = (float)(currentSampleRate / (261.63f * std::pow(2.0f, currentPitch / 12.0f)));
         
-        // COMPENSATION DU RETARD DE GROUPE DES 24 ALLPASS
-        // On soustrait le retard pour que le pitch ne baisse pas quand on monte l'Inharm
+        // COMPENSATION DU RETARD DE L'INHARM POUR GARDER LE PITCH EXACT
         if (mInharm > 0.001f) {
             float a = mInharm * 0.99f;
             float groupDelayPerFilter = (1.0f + a) / (1.0f - a + 0.0001f);
@@ -192,6 +188,7 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
             state.delayLine.setDelay(delaySamples);
             float delayed = state.delayLine.popSample(0);
 
+            // BYPASS ABSOLU SI INHARM EST A 0
             if (mInharm > 0.001f) {
                 for (int j = 0; j < 24; ++j) {
                     state.inharmAllpass[j].setCoeff(mInharm * 0.99f);
@@ -209,6 +206,7 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
             auto& state = channels[ch];
             float dry = buffer.getReadPointer(ch)[i];
 
+            // BYPASS ABSOLU SI HBETA EST A 0
             float pluckFiltered = dry;
             if (mHbeta > 0.001f) {
                 state.pluckDelay.setDelay(pluckDelayTime);
