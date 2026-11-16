@@ -51,7 +51,6 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
 
     auto getLfoHz = [&](int syncIdx, float rate) {
         if (syncIdx == 0) return rate; 
-        
         float beatsPerSec = (float)bpm / 60.0f;
         float beatsPerCycle = 1.0f;
         
@@ -164,38 +163,54 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
             state.loopFilter.setCutoff(mLoop, (float)currentSampleRate);
         }
 
+        // 1. LECTURE DE LA BOUCLE
         for (int ch = 0; ch < numChannels; ++ch) {
             auto& state = channels[ch];
             state.delayLine.setDelay(delaySamples);
             float delayed = state.delayLine.popSample(0);
 
-            for (int j = 0; j < 24; ++j) {
-                state.inharmAllpass[j].setCoeff(mInharm * 0.99f);
-                delayed = state.inharmAllpass[j].process(delayed);
+            // BYPASS DES ALLPASS SI INHARM EST A ZERO (Pour retrouver le son exact de la référence)
+            if (mInharm > 0.001f) {
+                for (int j = 0; j < 24; ++j) {
+                    state.inharmAllpass[j].setCoeff(mInharm * 0.99f);
+                    delayed = state.inharmAllpass[j].process(delayed);
+                }
             }
 
             float loopFiltered = state.loopFilter.process(delayed);
             loopFiltered = state.dcBlocker.process(loopFiltered);
-            loopOutputs[ch] = loopFiltered * mFb;
+            
+            // On stocke le signal FILTRÉ (sans le Feedback) pour le Wet
+            loopOutputs[ch] = loopFiltered;
         }
 
+        // 2. ECRITURE DANS LA BOUCLE ET MIXAGE
         for (int ch = 0; ch < numChannels; ++ch) {
             auto& state = channels[ch];
             float dry = buffer.getReadPointer(ch)[i];
 
-            state.pluckDelay.setDelay(pluckDelayTime);
-            float pluckDelayed = state.pluckDelay.popSample(0);
-            float mixAmt = juce::jlimit(0.0f, 1.0f, mHbeta * 1.2f);
-            float pluckFiltered = dry * (1.0f - mixAmt) + (dry - pluckDelayed) * mixAmt;
-            state.pluckDelay.pushSample(0, dry);
+            // Hβ (Pluck)
+            float pluckFiltered = dry;
+            if (mHbeta > 0.001f) {
+                state.pluckDelay.setDelay(pluckDelayTime);
+                float pluckDelayed = state.pluckDelay.popSample(0);
+                float mixAmt = juce::jlimit(0.0f, 1.0f, mHbeta * 1.2f);
+                pluckFiltered = dry * (1.0f - mixAmt) + (dry - pluckDelayed) * mixAmt;
+                state.pluckDelay.pushSample(0, dry);
+            }
 
             float crossSig = (numChannels == 2) ? loopOutputs[1 - ch] * mCross : 0.0f;
             float inputFilt = state.inputFilter.processSample(0, pluckFiltered);
             
-            float toWrite = std::tanh(inputFilt + (loopOutputs[ch] * polarityMult) + crossSig);
+            // LA FORMULE DE REFERENCE EXACTE (Le Feedback est appliqué ici, pas sur le Wet)
+            float toWrite = inputFilt + (loopOutputs[ch] * mFb * polarityMult) + crossSig;
+            toWrite = std::tanh(toWrite);
+
             state.delayLine.pushSample(0, toWrite);
 
+            // Le Wet est calculé à partir de loopOutputs (qui n'a PAS été multiplié par le Feedback)
             float wetSignal = (loopOutputs[ch] + crossSig) * mWetGain * currentGate;
+            
             buffer.getWritePointer(ch)[i] = dry * (1.0f - mDryWet) + wetSignal * mDryWet;
         }
     }
