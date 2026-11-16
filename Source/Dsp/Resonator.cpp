@@ -4,6 +4,10 @@ Resonator::Resonator() {
     gateSmoothed.setCurrentAndTargetValue(0.0f); 
     lfo1Smoothed.setCurrentAndTargetValue(0.0f);
     lfo2Smoothed.setCurrentAndTargetValue(0.0f);
+    mFbSmoothed.setCurrentAndTargetValue(0.0f);
+    mPitchSmoothed.setCurrentAndTargetValue(0.0f);
+    mDryWetSmoothed.setCurrentAndTargetValue(0.0f);
+    mWetGainSmoothed.setCurrentAndTargetValue(0.0f);
     jitterGen.seed(std::random_device{}()); 
 }
 
@@ -21,12 +25,20 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
         ch.modFilter.setCutoff(20.0f, (float) sampleRate);
         for(int i=0; i<24; ++i) ch.inharmAllpass[i].reset();
     }
+    
     gateSmoothed.reset(sampleRate, 2.0);
     gateSmoothed.setCurrentAndTargetValue(0.0f);
     
     lfo1.prepare(sampleRate); lfo2.prepare(sampleRate);
     lfo1Smoothed.reset(sampleRate, 0.002); 
     lfo2Smoothed.reset(sampleRate, 0.002);
+    
+    // Lissage des paramètres de base pour retrouver la finesse du tanh (20 ms)
+    mFbSmoothed.reset(sampleRate, 0.02);
+    mPitchSmoothed.reset(sampleRate, 0.02);
+    mDryWetSmoothed.reset(sampleRate, 0.02);
+    mWetGainSmoothed.reset(sampleRate, 0.02);
+    
     lfo1Value = 0.0f; lfo2Value = 0.0f;
 }
 
@@ -41,6 +53,10 @@ void Resonator::reset() {
     lfo1Value = 0.0f; lfo2Value = 0.0f;
     lfo1Smoothed.setCurrentAndTargetValue(0.0f);
     lfo2Smoothed.setCurrentAndTargetValue(0.0f);
+    mFbSmoothed.setCurrentAndTargetValue(0.0f);
+    mPitchSmoothed.setCurrentAndTargetValue(0.0f);
+    mDryWetSmoothed.setCurrentAndTargetValue(0.0f);
+    mWetGainSmoothed.setCurrentAndTargetValue(0.0f);
 }
 
 void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, double bpm, bool isNegative)
@@ -55,30 +71,14 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
         float beatsPerCycle = 1.0f;
         
         switch (syncIdx) {
-            case 1: beatsPerCycle = 16.0f; break; 
-            case 2: beatsPerCycle = 8.0f; break;  
-            case 3: beatsPerCycle = 4.0f; break;  
-            case 4: beatsPerCycle = 4.0f; break;  
-            case 5: beatsPerCycle = 4.0f * (2.0f/3.0f); break; 
-            case 6: beatsPerCycle = 4.0f * 1.5f; break; 
-            case 7: beatsPerCycle = 2.0f; break; 
-            case 8: beatsPerCycle = 2.0f * (2.0f/3.0f); break; 
-            case 9: beatsPerCycle = 2.0f * 1.5f; break; 
-            case 10: beatsPerCycle = 1.0f; break; 
-            case 11: beatsPerCycle = 2.0f/3.0f; break; 
-            case 12: beatsPerCycle = 1.5f; break; 
-            case 13: beatsPerCycle = 0.5f; break; 
-            case 14: beatsPerCycle = 0.5f * (2.0f/3.0f); break; 
-            case 15: beatsPerCycle = 0.5f * 1.5f; break; 
-            case 16: beatsPerCycle = 0.25f; break; 
-            case 17: beatsPerCycle = 0.25f * (2.0f/3.0f); break; 
-            case 18: beatsPerCycle = 0.25f * 1.5f; break; 
-            case 19: beatsPerCycle = 5.0f; break; 
-            case 20: beatsPerCycle = 6.0f; break; 
-            case 21: beatsPerCycle = 7.0f; break; 
-            case 22: beatsPerCycle = 9.0f; break; 
-            case 23: beatsPerCycle = 18.0f; break; 
-            default: beatsPerCycle = 1.0f; break;
+            case 1: beatsPerCycle = 16.0f; break; case 2: beatsPerCycle = 8.0f; break; case 3: beatsPerCycle = 4.0f; break;  
+            case 4: beatsPerCycle = 4.0f; break; case 5: beatsPerCycle = 4.0f * (2.0f/3.0f); break; case 6: beatsPerCycle = 4.0f * 1.5f; break; 
+            case 7: beatsPerCycle = 2.0f; break; case 8: beatsPerCycle = 2.0f * (2.0f/3.0f); break; case 9: beatsPerCycle = 2.0f * 1.5f; break; 
+            case 10: beatsPerCycle = 1.0f; break; case 11: beatsPerCycle = 2.0f/3.0f; break; case 12: beatsPerCycle = 1.5f; break; 
+            case 13: beatsPerCycle = 0.5f; break; case 14: beatsPerCycle = 0.5f * (2.0f/3.0f); break; case 15: beatsPerCycle = 0.5f * 1.5f; break; 
+            case 16: beatsPerCycle = 0.25f; break; case 17: beatsPerCycle = 0.25f * (2.0f/3.0f); break; case 18: beatsPerCycle = 0.25f * 1.5f; break; 
+            case 19: beatsPerCycle = 5.0f; break; case 20: beatsPerCycle = 6.0f; break; case 21: beatsPerCycle = 7.0f; break; 
+            case 22: beatsPerCycle = 9.0f; break; case 23: beatsPerCycle = 18.0f; break; default: beatsPerCycle = 1.0f; break;
         }
         return beatsPerSec / beatsPerCycle;
     };
@@ -117,10 +117,14 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
         float mMacro = mod(p.macro, p.m1_macro, p.m2_macro, 1.0f);
         float macroBoost = mMacro > 0.001f ? mMacro : 0.0f;
         
-        float mPitch = mod(p.pitch + (macroBoost * 24.0f), p.m1_pitch * 24.0f, p.m2_pitch * 24.0f, 36.0f);
-        if (p.pitch + (l1*p.m1_pitch) + (l2*p.m2_pitch) < 0) mPitch = -mPitch; 
+        // Calcul des cibles modulées
+        float targetPitch = mod(p.pitch + (macroBoost * 24.0f), p.m1_pitch * 24.0f, p.m2_pitch * 24.0f, 36.0f);
+        if (p.pitch + (l1*p.m1_pitch) + (l2*p.m2_pitch) < 0) targetPitch = -targetPitch; 
         
-        float mFb = mod(p.feedback + (macroBoost * 0.1f), p.m1_feed, p.m2_feed, 0.99f);
+        float targetFb = mod(p.feedback + (macroBoost * 0.1f), p.m1_feed, p.m2_feed, 0.99f);
+        float targetDryWet = mod(p.dryWet, p.m1_drywet, p.m2_drywet, 1.0f);
+        float targetWetGain = mod(p.wetGain, p.m1_wetgain, p.m2_wetgain, 2.0f);
+        
         float mInc = mod(p.inputCutoff * (1.0f + macroBoost * 3.0f), p.m1_incut * 10000.0f, p.m2_incut * 10000.0f, 20000.0f);
         float mLoop = mod(p.loopCutoff * (1.0f + macroBoost * 3.0f), p.m1_loopcut * 10000.0f, p.m2_loopcut * 10000.0f, 20000.0f);
         float mHbeta = mod(p.pluck, p.m1_hbeta, p.m2_hbeta, 1.0f);
@@ -128,10 +132,29 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
         float mCross = mod(p.crossFb, p.m1_cross, p.m2_cross, 0.98f);
         float mSelf = mod(p.selfMod, p.m1_self, p.m2_self, 1.0f);
         float mDrift = mod(p.jitter, p.m1_drift, p.m2_drift, 1.0f);
-        float mDryWet = mod(p.dryWet, p.m1_drywet, p.m2_drywet, 1.0f);
-        float mWetGain = mod(p.wetGain, p.m1_wetgain, p.m2_wetgain, 2.0f);
 
-        float delaySamples = (float)(currentSampleRate / (261.63f * std::pow(2.0f, mPitch / 12.0f)));
+        // Lissage des paramètres pour retrouver le son de la V0.4
+        mPitchSmoothed.setTargetValue(targetPitch);
+        mFbSmoothed.setTargetValue(targetFb);
+        mDryWetSmoothed.setTargetValue(targetDryWet);
+        mWetGainSmoothed.setTargetValue(targetWetGain);
+
+        float currentPitch = mPitchSmoothed.getNextValue();
+        float currentFb = mFbSmoothed.getNextValue();
+        float currentDryWet = mDryWetSmoothed.getNextValue();
+        float currentWetGain = mWetGainSmoothed.getNextValue();
+
+        float delaySamples = (float)(currentSampleRate / (261.63f * std::pow(2.0f, currentPitch / 12.0f)));
+        
+        // COMPENSATION DU RETARD DE GROUPE DES 24 ALLPASS
+        // On soustrait le retard pour que le pitch ne baisse pas quand on monte l'Inharm
+        if (mInharm > 0.001f) {
+            float a = mInharm * 0.99f;
+            float groupDelayPerFilter = (1.0f + a) / (1.0f - a + 0.0001f);
+            float totalGroupDelay = 24.0f * groupDelayPerFilter;
+            delaySamples -= totalGroupDelay;
+        }
+
         delaySamples = juce::jlimit(4.0f, maxDelaySamples - 8.0f, delaySamples);
         float pluckDelayTime = delaySamples * 0.5f;
 
@@ -163,13 +186,12 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
             state.loopFilter.setCutoff(mLoop, (float)currentSampleRate);
         }
 
-        // 1. LECTURE DE LA BOUCLE
+        // LECTURE DE LA BOUCLE
         for (int ch = 0; ch < numChannels; ++ch) {
             auto& state = channels[ch];
             state.delayLine.setDelay(delaySamples);
             float delayed = state.delayLine.popSample(0);
 
-            // BYPASS DES ALLPASS SI INHARM EST A ZERO (Pour retrouver le son exact de la référence)
             if (mInharm > 0.001f) {
                 for (int j = 0; j < 24; ++j) {
                     state.inharmAllpass[j].setCoeff(mInharm * 0.99f);
@@ -179,17 +201,14 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
 
             float loopFiltered = state.loopFilter.process(delayed);
             loopFiltered = state.dcBlocker.process(loopFiltered);
-            
-            // On stocke le signal FILTRÉ (sans le Feedback) pour le Wet
             loopOutputs[ch] = loopFiltered;
         }
 
-        // 2. ECRITURE DANS LA BOUCLE ET MIXAGE
+        // ECRITURE ET MIXAGE
         for (int ch = 0; ch < numChannels; ++ch) {
             auto& state = channels[ch];
             float dry = buffer.getReadPointer(ch)[i];
 
-            // Hβ (Pluck)
             float pluckFiltered = dry;
             if (mHbeta > 0.001f) {
                 state.pluckDelay.setDelay(pluckDelayTime);
@@ -202,16 +221,14 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
             float crossSig = (numChannels == 2) ? loopOutputs[1 - ch] * mCross : 0.0f;
             float inputFilt = state.inputFilter.processSample(0, pluckFiltered);
             
-            // LA FORMULE DE REFERENCE EXACTE (Le Feedback est appliqué ici, pas sur le Wet)
-            float toWrite = inputFilt + (loopOutputs[ch] * mFb * polarityMult) + crossSig;
+            float toWrite = inputFilt + (loopOutputs[ch] * currentFb * polarityMult) + crossSig;
             toWrite = std::tanh(toWrite);
 
             state.delayLine.pushSample(0, toWrite);
 
-            // Le Wet est calculé à partir de loopOutputs (qui n'a PAS été multiplié par le Feedback)
-            float wetSignal = (loopOutputs[ch] + crossSig) * mWetGain * currentGate;
+            float wetSignal = (loopOutputs[ch] + crossSig) * currentWetGain * currentGate;
             
-            buffer.getWritePointer(ch)[i] = dry * (1.0f - mDryWet) + wetSignal * mDryWet;
+            buffer.getWritePointer(ch)[i] = dry * (1.0f - currentDryWet) + wetSignal * currentDryWet;
         }
     }
 }
