@@ -12,21 +12,42 @@ inline void setupRotarySlider(juce::Slider& s, juce::Label& l, const juce::Strin
     parent.addAndMakeVisible(l);
 }
 
-// Force le menu à s'ouvrir vers le haut (Correction Pointeur avec '->')
+// Menu déroulant robuste : s'ouvre vers le haut et ne bloque plus après la première utilisation
 class CustomComboBox : public juce::ComboBox
 {
 public:
     void showPopup() override
     {
-        auto* rootMenu = getRootMenu();
-        if (rootMenu == nullptr) return;
+        if (isMenuOpen || !isEnabled()) return;
+        isMenuOpen = true;
+
+        juce::PopupMenu menu;
+        for (int i = 1; i <= getNumItems(); ++i) {
+            menu.addItem(i, getItemText(i - 1), true, i == getSelectedId());
+        }
 
         auto options = juce::PopupMenu::Options()
             .withTargetComponent(this)
-            .withPreferredPopupDirection(juce::PopupMenu::Options::PopupDirection::upwards);
-            
-        rootMenu->showMenuAsync(options, [this](int result) {
-            if (result != 0) setSelectedId(result, juce::sendNotificationSync);
+            .withPreferredPopupDirection(juce::PopupMenu::Options::PopupDirection::upwards)
+            .withMinimumWidth(getWidth())
+            .withMaximumNumColumns(1);
+
+        juce::Component::SafePointer<CustomComboBox> safeThis(this);
+        
+        menu.showMenuAsync(options, [safeThis](int result) {
+            if (safeThis == nullptr) return;
+            safeThis->isMenuOpen = false;
+
+            if (result != 0) {
+                // On utilise callAsync pour laisser le menu se fermer complètement avant de mettre à jour
+                juce::MessageManager::callAsync([safeThis, result] {
+                    if (safeThis != nullptr) {
+                        safeThis->setSelectedId(result, juce::sendNotificationSync);
+                    }
+                });
+            }
         });
     }
+private:
+    bool isMenuOpen = false;
 };
