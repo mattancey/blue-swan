@@ -70,6 +70,12 @@ private:
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> lfo1Smoothed;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> lfo2Smoothed;
     
+    // Lissages réintroduits pour le Feedback, le Pitch, le Mix et le Wet
+    juce::SmoothedValue<float> mFbSmoothed;
+    juce::SmoothedValue<float> mPitchSmoothed;
+    juce::SmoothedValue<float> mDryWetSmoothed;
+    juce::SmoothedValue<float> mWetGainSmoothed;
+    
     float lfo1Value = 0.0f;
     float lfo2Value = 0.0f;
     
