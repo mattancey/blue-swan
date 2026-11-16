@@ -4,10 +4,6 @@ Resonator::Resonator() {
     gateSmoothed.setCurrentAndTargetValue(0.0f); 
     lfo1Smoothed.setCurrentAndTargetValue(0.0f);
     lfo2Smoothed.setCurrentAndTargetValue(0.0f);
-    mFbSmoothed.setCurrentAndTargetValue(0.0f);
-    mPitchSmoothed.setCurrentAndTargetValue(0.0f);
-    mDryWetSmoothed.setCurrentAndTargetValue(0.0f);
-    mWetGainSmoothed.setCurrentAndTargetValue(0.0f);
     jitterGen.seed(std::random_device{}()); 
 }
 
@@ -31,11 +27,6 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
     lfo1Smoothed.reset(sampleRate, 0.002); 
     lfo2Smoothed.reset(sampleRate, 0.002);
     
-    mFbSmoothed.reset(sampleRate, 0.02);
-    mPitchSmoothed.reset(sampleRate, 0.02);
-    mDryWetSmoothed.reset(sampleRate, 0.02);
-    mWetGainSmoothed.reset(sampleRate, 0.02);
-    
     lfo1Value = 0.0f; lfo2Value = 0.0f;
 }
 
@@ -49,10 +40,6 @@ void Resonator::reset() {
     lfo1Value = 0.0f; lfo2Value = 0.0f;
     lfo1Smoothed.setCurrentAndTargetValue(0.0f);
     lfo2Smoothed.setCurrentAndTargetValue(0.0f);
-    mFbSmoothed.setCurrentAndTargetValue(0.0f);
-    mPitchSmoothed.setCurrentAndTargetValue(0.0f);
-    mDryWetSmoothed.setCurrentAndTargetValue(0.0f);
-    mWetGainSmoothed.setCurrentAndTargetValue(0.0f);
 }
 
 void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, double bpm, bool isNegative)
@@ -113,32 +100,21 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
         float mMacro = mod(p.macro, p.m1_macro, p.m2_macro, 1.0f);
         float macroBoost = mMacro > 0.001f ? mMacro : 0.0f;
         
-        float targetPitch = mod(p.pitch + (macroBoost * 24.0f), p.m1_pitch * 24.0f, p.m2_pitch * 24.0f, 36.0f);
-        if (p.pitch + (l1*p.m1_pitch) + (l2*p.m2_pitch) < 0) targetPitch = -targetPitch; 
+        float mPitch = mod(p.pitch + (macroBoost * 24.0f), p.m1_pitch * 24.0f, p.m2_pitch * 24.0f, 36.0f);
+        if (p.pitch + (l1*p.m1_pitch) + (l2*p.m2_pitch) < 0) mPitch = -mPitch; 
         
-        float targetFb = mod(p.feedback + (macroBoost * 0.1f), p.m1_feed, p.m2_feed, 0.99f);
-        float targetDryWet = mod(p.dryWet, p.m1_drywet, p.m2_drywet, 1.0f);
-        float targetWetGain = mod(p.wetGain, p.m1_wetgain, p.m2_wetgain, 2.0f);
-        
+        float mFb = mod(p.feedback + (macroBoost * 0.1f), p.m1_feed, p.m2_feed, 0.99f);
         float mInc = mod(p.inputCutoff * (1.0f + macroBoost * 3.0f), p.m1_incut * 10000.0f, p.m2_incut * 10000.0f, 20000.0f);
         float mLoop = mod(p.loopCutoff * (1.0f + macroBoost * 3.0f), p.m1_loopcut * 10000.0f, p.m2_loopcut * 10000.0f, 20000.0f);
         float mCross = mod(p.crossFb, p.m1_cross, p.m2_cross, 0.98f);
         float mSelf = mod(p.selfMod, p.m1_self, p.m2_self, 1.0f);
         float mDrift = mod(p.jitter, p.m1_drift, p.m2_drift, 1.0f);
+        float mDryWet = mod(p.dryWet, p.m1_drywet, p.m2_drywet, 1.0f);
+        float mWetGain = mod(p.wetGain, p.m1_wetgain, p.m2_wetgain, 2.0f);
 
-        // L'EKS EST TOTALEMENT IGNORÉ ICI (mHbeta et mInharm ne sont pas lus)
+        // L'EKS EST TOTALEMENT IGNORÉ ICI : mHbeta et mInharm ne sont même pas calculés
 
-        mPitchSmoothed.setTargetValue(targetPitch);
-        mFbSmoothed.setTargetValue(targetFb);
-        mDryWetSmoothed.setTargetValue(targetDryWet);
-        mWetGainSmoothed.setTargetValue(targetWetGain);
-
-        float currentPitch = mPitchSmoothed.getNextValue();
-        float currentFb = mFbSmoothed.getNextValue();
-        float currentDryWet = mDryWetSmoothed.getNextValue();
-        float currentWetGain = mWetGainSmoothed.getNextValue();
-
-        float delaySamples = (float)(currentSampleRate / (261.63f * std::pow(2.0f, currentPitch / 12.0f)));
+        float delaySamples = (float)(currentSampleRate / (261.63f * std::pow(2.0f, mPitch / 12.0f)));
         delaySamples = juce::jlimit(4.0f, maxDelaySamples - 8.0f, delaySamples);
 
         if (mDrift > 0.001f) {
@@ -186,16 +162,18 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
             float dry = buffer.getReadPointer(ch)[i];
 
             float crossSig = (numChannels == 2) ? loopOutputs[1 - ch] * mCross : 0.0f;
-            float inputFilt = state.inputFilter.processSample(0, dry); // Dry direct
             
-            float toWrite = inputFilt + (loopOutputs[ch] * currentFb * polarityMult) + crossSig;
+            // L'entrée Dry passe directement dans le filtre d'entrée (pas de Pluck)
+            float inputFilt = state.inputFilter.processSample(0, dry); 
+            
+            float toWrite = inputFilt + (loopOutputs[ch] * mFb * polarityMult) + crossSig;
             toWrite = std::tanh(toWrite);
 
             state.delayLine.pushSample(0, toWrite);
 
-            float wetSignal = (loopOutputs[ch] + crossSig) * currentWetGain * currentGate;
+            float wetSignal = (loopOutputs[ch] + crossSig) * mWetGain * currentGate;
             
-            buffer.getWritePointer(ch)[i] = dry * (1.0f - currentDryWet) + wetSignal * currentDryWet;
+            buffer.getWritePointer(ch)[i] = dry * (1.0f - mDryWet) + wetSignal * mDryWet;
         }
     }
 }
