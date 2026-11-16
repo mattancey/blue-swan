@@ -12,18 +12,15 @@ inline void setupRotarySlider(juce::Slider& s, juce::Label& l, const juce::Strin
     parent.addAndMakeVisible(l);
 }
 
-// Menu déroulant robuste : s'ouvre vers le haut et ne bloque plus après la première utilisation
+// Force le menu à s'ouvrir vers le haut ET corrige le bug de blocage
 class CustomComboBox : public juce::ComboBox
 {
 public:
     void showPopup() override
     {
-        if (isMenuOpen || !isEnabled()) return;
-        isMenuOpen = true;
-
-        juce::PopupMenu menu;
+        juce::PopupMenu m;
         for (int i = 1; i <= getNumItems(); ++i) {
-            menu.addItem(i, getItemText(i - 1), true, i == getSelectedId());
+            m.addItem(i, getItemText(i - 1), true, i == getSelectedId());
         }
 
         auto options = juce::PopupMenu::Options()
@@ -32,14 +29,17 @@ public:
             .withMinimumWidth(getWidth())
             .withMaximumNumColumns(1);
 
+        // On stocke un pointeur sécurisé pour le callback
         juce::Component::SafePointer<CustomComboBox> safeThis(this);
-        
-        menu.showMenuAsync(options, [safeThis](int result) {
-            if (safeThis == nullptr) return;
-            safeThis->isMenuOpen = false;
 
-            if (result != 0) {
-                // On utilise callAsync pour laisser le menu se fermer complètement avant de mettre à jour
+        m.showMenuAsync(options, [safeThis](int result) {
+            if (safeThis == nullptr) return;
+            
+            // LA SOLUTION EST ICI : On force JUCE à oublier que le menu était ouvert
+            safeThis->hidePopup(); 
+            
+            if (result > 0) {
+                // On laisse le menu se fermer avant de mettre à jour la valeur
                 juce::MessageManager::callAsync([safeThis, result] {
                     if (safeThis != nullptr) {
                         safeThis->setSelectedId(result, juce::sendNotificationSync);
@@ -48,6 +48,4 @@ public:
             }
         });
     }
-private:
-    bool isMenuOpen = false;
 };
