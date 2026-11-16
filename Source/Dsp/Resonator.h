@@ -45,22 +45,12 @@ private:
         void reset() { z = 0.0f; }
     };
 
-    struct Allpass {
-        float a = 0.0f;
-        float x1 = 0.0f, y1 = 0.0f;
-        void setCoeff(float coeff) { a = juce::jlimit(-0.99f, 0.99f, coeff); }
-        float process(float x) noexcept { float y = -a * x + x1 + a * y1; x1 = x; y1 = y; return y; }
-        void reset() { x1 = 0.0f; y1 = 0.0f; }
-    };
-
     struct ChannelState {
         juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Lagrange3rd> delayLine { (int) maxDelaySamples };
-        juce::dsp::DelayLine<float> pluckDelay { 4000 }; 
         juce::dsp::StateVariableTPTFilter<float> inputFilter;
         OnePoleLP loopFilter;
         DCBlocker dcBlocker;
         OnePoleLP modFilter;
-        Allpass inharmAllpass[24];
     };
 
     std::vector<ChannelState> channels;
@@ -69,12 +59,6 @@ private:
     
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> lfo1Smoothed;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> lfo2Smoothed;
-    
-    // Lissages réintroduits pour le Feedback, le Pitch, le Mix et le Wet
-    juce::SmoothedValue<float> mFbSmoothed;
-    juce::SmoothedValue<float> mPitchSmoothed;
-    juce::SmoothedValue<float> mDryWetSmoothed;
-    juce::SmoothedValue<float> mWetGainSmoothed;
     
     float lfo1Value = 0.0f;
     float lfo2Value = 0.0f;
