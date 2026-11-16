@@ -19,11 +19,9 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
     channels.resize((size_t) numChannels);
     for (auto& ch : channels) {
         ch.delayLine.prepare(spec); ch.delayLine.reset();
-        ch.pluckDelay.prepare(spec); ch.pluckDelay.reset();
         ch.inputFilter.prepare(spec); ch.inputFilter.setType(juce::dsp::StateVariableTPTFilterType::lowpass); ch.inputFilter.reset();
         ch.loopFilter.reset(); ch.dcBlocker.reset();
         ch.modFilter.setCutoff(20.0f, (float) sampleRate);
-        for(int i=0; i<24; ++i) ch.inharmAllpass[i].reset();
     }
     
     gateSmoothed.reset(sampleRate, 2.0);
@@ -43,9 +41,8 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
 
 void Resonator::reset() { 
     for (auto& ch : channels) {
-        ch.delayLine.reset(); ch.pluckDelay.reset(); ch.inputFilter.reset(); ch.loopFilter.reset();
+        ch.delayLine.reset(); ch.inputFilter.reset(); ch.loopFilter.reset();
         ch.dcBlocker.reset(); ch.modFilter.reset();
-        for(int i=0; i<24; ++i) ch.inharmAllpass[i].reset();
     }
     gateSmoothed.setCurrentAndTargetValue(0.0f);
     jitterState[0] = 0.0f; jitterState[1] = 0.0f;
@@ -125,11 +122,11 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
         
         float mInc = mod(p.inputCutoff * (1.0f + macroBoost * 3.0f), p.m1_incut * 10000.0f, p.m2_incut * 10000.0f, 20000.0f);
         float mLoop = mod(p.loopCutoff * (1.0f + macroBoost * 3.0f), p.m1_loopcut * 10000.0f, p.m2_loopcut * 10000.0f, 20000.0f);
-        float mHbeta = mod(p.pluck, p.m1_hbeta, p.m2_hbeta, 1.0f);
-        float mInharm = mod(p.inharm, p.m1_inharm, p.m2_inharm, 0.99f);
         float mCross = mod(p.crossFb, p.m1_cross, p.m2_cross, 0.98f);
         float mSelf = mod(p.selfMod, p.m1_self, p.m2_self, 1.0f);
         float mDrift = mod(p.jitter, p.m1_drift, p.m2_drift, 1.0f);
+
+        // L'EKS EST TOTALEMENT IGNORÉ ICI (mHbeta et mInharm ne sont pas lus)
 
         mPitchSmoothed.setTargetValue(targetPitch);
         mFbSmoothed.setTargetValue(targetFb);
@@ -142,17 +139,7 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
         float currentWetGain = mWetGainSmoothed.getNextValue();
 
         float delaySamples = (float)(currentSampleRate / (261.63f * std::pow(2.0f, currentPitch / 12.0f)));
-        
-        // COMPENSATION DU RETARD DE L'INHARM POUR GARDER LE PITCH EXACT
-        if (mInharm > 0.001f) {
-            float a = mInharm * 0.99f;
-            float groupDelayPerFilter = (1.0f + a) / (1.0f - a + 0.0001f);
-            float totalGroupDelay = 24.0f * groupDelayPerFilter;
-            delaySamples -= totalGroupDelay;
-        }
-
         delaySamples = juce::jlimit(4.0f, maxDelaySamples - 8.0f, delaySamples);
-        float pluckDelayTime = delaySamples * 0.5f;
 
         if (mDrift > 0.001f) {
             for (int ch = 0; ch < numChannels; ++ch) {
@@ -182,42 +169,24 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
             state.loopFilter.setCutoff(mLoop, (float)currentSampleRate);
         }
 
-        // LECTURE DE LA BOUCLE
+        // LECTURE DE LA BOUCLE (Sans Inharm)
         for (int ch = 0; ch < numChannels; ++ch) {
             auto& state = channels[ch];
             state.delayLine.setDelay(delaySamples);
             float delayed = state.delayLine.popSample(0);
-
-            // BYPASS ABSOLU SI INHARM EST A 0
-            if (mInharm > 0.001f) {
-                for (int j = 0; j < 24; ++j) {
-                    state.inharmAllpass[j].setCoeff(mInharm * 0.99f);
-                    delayed = state.inharmAllpass[j].process(delayed);
-                }
-            }
 
             float loopFiltered = state.loopFilter.process(delayed);
             loopFiltered = state.dcBlocker.process(loopFiltered);
             loopOutputs[ch] = loopFiltered;
         }
 
-        // ECRITURE ET MIXAGE
+        // ECRITURE ET MIXAGE (Sans Hbeta)
         for (int ch = 0; ch < numChannels; ++ch) {
             auto& state = channels[ch];
             float dry = buffer.getReadPointer(ch)[i];
 
-            // BYPASS ABSOLU SI HBETA EST A 0
-            float pluckFiltered = dry;
-            if (mHbeta > 0.001f) {
-                state.pluckDelay.setDelay(pluckDelayTime);
-                float pluckDelayed = state.pluckDelay.popSample(0);
-                float mixAmt = juce::jlimit(0.0f, 1.0f, mHbeta * 1.2f);
-                pluckFiltered = dry * (1.0f - mixAmt) + (dry - pluckDelayed) * mixAmt;
-                state.pluckDelay.pushSample(0, dry);
-            }
-
             float crossSig = (numChannels == 2) ? loopOutputs[1 - ch] * mCross : 0.0f;
-            float inputFilt = state.inputFilter.processSample(0, pluckFiltered);
+            float inputFilt = state.inputFilter.processSample(0, dry); // Dry direct
             
             float toWrite = inputFilt + (loopOutputs[ch] * currentFb * polarityMult) + crossSig;
             toWrite = std::tanh(toWrite);
