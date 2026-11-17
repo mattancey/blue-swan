@@ -32,9 +32,16 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     p.jitter = get(Params::jitter); p.crossFb = get(Params::crossFb); p.selfMod = get(Params::selfMod); p.wetGain = get(Params::wetGain);
     p.macro = get(Params::macro);
 
+    // LA LOGIQUE DE LA MACRO EST DE RETOUR
+    if (p.macro > 0.001f) {
+        p.pitch += p.macro * 24.0f;
+        p.inputCutoff *= (1.0f + p.macro * 3.0f);
+        p.loopCutoff *= (1.0f + p.macro * 3.0f);
+        p.feedback = juce::jmin(0.98f, p.feedback + (p.macro * 0.1f));
+    }
+
     p.lfo1Shape = (int)get(Params::lfo1Shape); p.lfo1Sync = (int)get(Params::lfo1Sync); p.lfo1Rate = get(Params::lfo1Rate); p.lfo1Pw = get(Params::lfo1Pw);
     p.lfo1Bypass = get(Params::lfo1Bypass) > 0.5f;
-    
     p.lfo2Shape = (int)get(Params::lfo2Shape); p.lfo2Sync = (int)get(Params::lfo2Sync); p.lfo2Rate = get(Params::lfo2Rate); p.lfo2Pw = get(Params::lfo2Pw);
     p.lfo2Bypass = get(Params::lfo2Bypass) > 0.5f;
 
@@ -50,13 +57,9 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     p.m1_drywet = get(Params::m1_drywet); p.m2_drywet = get(Params::m2_drywet);
     p.m1_wetgain = get(Params::m1_wetgain); p.m2_wetgain = get(Params::m2_wetgain);
     p.m1_macro = get(Params::m1_macro); p.m2_macro = get(Params::m2_macro);
-    
-    p.m1_lfo2 = get(Params::m1_lfo2);
-    p.m2_lfo1 = get(Params::m2_lfo1);
+    p.m1_lfo2 = get(Params::m1_lfo2); p.m2_lfo1 = get(Params::m2_lfo1);
 
     bool isNeg = get(Params::polarity) > 0.5f;
-    
-    // On envoie tout, mais le Resonator ignore la matrice pour l'instant
     resonator.process(buffer, p, bpm, isNeg);
 }
 
