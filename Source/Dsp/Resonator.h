@@ -8,7 +8,7 @@
 struct ModParams {
     float pitch, feedback, pluck, inharm, inputCutoff, loopCutoff, dryWet, jitter, crossFb, selfMod, wetGain, macro;
     int lfo1Shape, lfo1Sync, lfo2Shape, lfo2Sync;
-    float lfo1Rate, lfo1Pw, lfo2Rate, lfo2Pw;
+    float lfo1Rate, lfo1Phase, lfo1Pw, lfo2Rate, lfo2Phase, lfo2Pw; // Phase ajoutée
     bool lfo1Bypass, lfo2Bypass;
     float m1_pitch, m1_feed, m1_incut, m1_loopcut, m1_hbeta, m1_inharm, m1_cross, m1_self, m1_drift, m1_drywet, m1_wetgain, m1_macro;
     float m2_pitch, m2_feed, m2_incut, m2_loopcut, m2_hbeta, m2_inharm, m2_cross, m2_self, m2_drift, m2_drywet, m2_wetgain, m2_macro;
@@ -68,8 +68,6 @@ private:
     std::vector<ChannelState> channels;
     
     LFO lfo1, lfo2;
-    float lfo1Phase = 0.0f;
-    float lfo2Phase = 0.0f;
 
     juce::SmoothedValue<float> pitchSemitonesSmoothed;
     juce::SmoothedValue<float> feedbackSmoothed;
