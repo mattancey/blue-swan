@@ -32,13 +32,7 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     p.jitter = get(Params::jitter); p.crossFb = get(Params::crossFb); p.selfMod = get(Params::selfMod); p.wetGain = get(Params::wetGain);
     p.macro = get(Params::macro);
 
-    // LA LOGIQUE DE LA MACRO EST DE RETOUR
-    if (p.macro > 0.001f) {
-        p.pitch += p.macro * 24.0f;
-        p.inputCutoff *= (1.0f + p.macro * 3.0f);
-        p.loopCutoff *= (1.0f + p.macro * 3.0f);
-        p.feedback = juce::jmin(0.98f, p.feedback + (p.macro * 0.1f));
-    }
+    // LA MACRO N'EST PLUS APPLIQUEE ICI, ELLE EST GÉRÉE DANS LE RESONATOR
 
     p.lfo1Shape = (int)get(Params::lfo1Shape); p.lfo1Sync = (int)get(Params::lfo1Sync); p.lfo1Rate = get(Params::lfo1Rate); p.lfo1Pw = get(Params::lfo1Pw);
     p.lfo1Bypass = get(Params::lfo1Bypass) > 0.5f;
