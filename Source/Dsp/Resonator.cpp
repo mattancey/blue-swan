@@ -90,7 +90,7 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
     float l1 = p.lfo1Bypass ? 0.0f : lfo1.processBlock(lfo1Hz, numSamples, p.lfo1Phase);
     float l2 = p.lfo2Bypass ? 0.0f : lfo2.processBlock(lfo2Hz, numSamples, p.lfo2Phase);
 
-    // CORRECTION DU BUG : On prend en compte les valeurs minimales et maximales réelles
+    // CORRECTION DU BUG ICI : minVal et maxVal sont respectés
     auto mod = [&](float base, float d1, float d2, float minVal, float maxVal) {
         return juce::jlimit(minVal, maxVal, base + (l1 * d1) + (l2 * d2));
     };
