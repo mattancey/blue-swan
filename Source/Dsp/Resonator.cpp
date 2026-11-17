@@ -12,21 +12,16 @@ Resonator::Resonator()
     gateSmoothed.setCurrentAndTargetValue(0.0f);
     inharmSmoothed.setCurrentAndTargetValue(0.0f);
     pluckSmoothed.setCurrentAndTargetValue(0.0f);
-    
     jitterGen.seed(std::random_device{}());
 }
 
 void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
 {
     currentSampleRate = sampleRate;
-    juce::dsp::ProcessSpec spec;
-    spec.sampleRate = sampleRate;
-    spec.maximumBlockSize = (juce::uint32) samplesPerBlock;
-    spec.numChannels = 1;
+    juce::dsp::ProcessSpec spec { sampleRate, (juce::uint32)samplesPerBlock, 1 };
 
     channels.resize((size_t) numChannels);
-    for (auto& ch : channels)
-    {
+    for (auto& ch : channels) {
         ch.delayLine.prepare(spec); ch.delayLine.reset();
         ch.pluckDelay.prepare(spec); ch.pluckDelay.reset();
         ch.inputFilter.prepare(spec); ch.inputFilter.setType(juce::dsp::StateVariableTPTFilterType::lowpass); ch.inputFilter.reset();
@@ -35,8 +30,7 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
         for (int i = 0; i < 24; ++i) ch.inharmAllpass[i].reset();
     }
 
-    lfo1.prepare(sampleRate);
-    lfo2.prepare(sampleRate);
+    lfo1.prepare(sampleRate); lfo2.prepare(sampleRate);
 
     pitchSemitonesSmoothed.reset(sampleRate, 0.05);
     feedbackSmoothed.reset(sampleRate, 0.02);
@@ -49,14 +43,11 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
     gateSmoothed.setCurrentAndTargetValue(0.0f);
     inharmSmoothed.reset(sampleRate, 0.05);
     pluckSmoothed.reset(sampleRate, 0.05);
-    
-    lfo1Phase = 0.0f; lfo2Phase = 0.0f;
 }
 
 void Resonator::reset()
 {
-    for (auto& ch : channels)
-    {
+    for (auto& ch : channels) {
         ch.delayLine.reset(); ch.pluckDelay.reset(); ch.inputFilter.reset(); ch.loopFilter.reset();
         ch.dcBlocker.reset(); ch.modFilter.reset();
         for (int i = 0; i < 24; ++i) ch.inharmAllpass[i].reset();
@@ -65,7 +56,7 @@ void Resonator::reset()
     gateSmoothed.setCurrentAndTargetValue(0.0f);
     inharmSmoothed.setCurrentAndTargetValue(0.0f);
     pluckSmoothed.setCurrentAndTargetValue(0.0f);
-    lfo1Phase = 0.0f; lfo2Phase = 0.0f;
+    lfo1.prepare(currentSampleRate); lfo2.prepare(currentSampleRate);
 }
 
 void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, double bpm, bool isNegative)
@@ -74,7 +65,7 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
     const int numSamples = buffer.getNumSamples();
     polarityMultiplier = isNegative ? -1.0f : 1.0f;
 
-    // --- CALCUL DES LFO (UNE FOIS PAR BLOC) ---
+    // --- CALCUL DES LFO (PAR BLOC) ---
     auto getLfoHz = [&](int syncIdx, float rate) {
         if (syncIdx == 0) return rate; 
         float beatsPerSec = (float)bpm / 60.0f;
@@ -94,22 +85,12 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
 
     float lfo1Hz = getLfoHz(p.lfo1Sync, p.lfo1Rate);
     float lfo2Hz = getLfoHz(p.lfo2Sync, p.lfo2Rate);
-    
+
     lfo1.setShape(p.lfo1Shape); lfo1.setPulseWidth(p.lfo1Pw);
     lfo2.setShape(p.lfo2Shape); lfo2.setPulseWidth(p.lfo2Pw);
 
-    // Avancement de la phase sur tout le bloc
-    float lfo1PhaseInc = lfo1Hz * (float)numSamples / (float)currentSampleRate;
-    float lfo2PhaseInc = lfo2Hz * (float)numSamples / (float)currentSampleRate;
-    
-    // Modulation croisée des LFO
-    float l1 = p.lfo1Bypass ? 0.0f : lfo1.process(lfo1PhaseInc * (float)currentSampleRate / (float)numSamples, lfo1Phase * 360.0f);
-    float l2 = p.lfo2Bypass ? 0.0f : lfo2.process(lfo2PhaseInc * (float)currentSampleRate / (float)numSamples, lfo2Phase * 360.0f);
-    
-    lfo1Phase += lfo1PhaseInc;
-    if (lfo1Phase >= 1.0f) lfo1Phase -= 1.0f;
-    lfo2Phase += lfo2PhaseInc;
-    if (lfo2Phase >= 1.0f) lfo2Phase -= 1.0f;
+    float l1 = p.lfo1Bypass ? 0.0f : lfo1.processBlock(lfo1Hz, numSamples, 0.0f);
+    float l2 = p.lfo2Bypass ? 0.0f : lfo2.processBlock(lfo2Hz, numSamples, 0.0f);
 
     // --- MATRICE DE MODULATION ---
     auto mod = [&](float base, float d1, float d2, float maxVal) {
@@ -133,7 +114,7 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
     float targetDryWet = mod(p.dryWet, p.m1_drywet, p.m2_drywet, 1.0f);
     float targetWetGain = mod(p.wetGain, p.m1_wetgain, p.m2_wetgain, 2.0f);
 
-    // --- MISE A JOUR DES LISSAGES (UNE FOIS PAR BLOC) ---
+    // --- LISSAGES ---
     pitchSemitonesSmoothed.setTargetValue(juce::jlimit(-36.0f, 36.0f, targetPitch));
     feedbackSmoothed.setTargetValue(targetFb);
     dryWetSmoothed.setTargetValue(targetDryWet);
@@ -147,15 +128,13 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
     currentInputCutoff = juce::jlimit(20.0f, 20000.0f, targetInCut);
     currentLoopCutoff = juce::jlimit(20.0f, 20000.0f, targetLoopCut);
 
-    for (int ch = 0; ch < numChannels; ++ch)
-    {
+    for (int ch = 0; ch < numChannels; ++ch) {
         channels[(size_t) ch].inputFilter.setCutoffFrequency(currentInputCutoff);
         channels[(size_t) ch].loopFilter.setCutoff(currentLoopCutoff, (float) currentSampleRate);
     }
 
     float loopOutputs[2] = { 0.0f, 0.0f };
 
-    // --- BOUCLE AUDIO (ECHANTILLON PAR ECHANTILLON) ---
     for (int i = 0; i < numSamples; ++i)
     {
         const float pitchSt = pitchSemitonesSmoothed.getNextValue();
