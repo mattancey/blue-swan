@@ -56,7 +56,6 @@ void Resonator::reset()
     gateSmoothed.setCurrentAndTargetValue(0.0f);
     inharmSmoothed.setCurrentAndTargetValue(0.0f);
     pluckSmoothed.setCurrentAndTargetValue(0.0f);
-    lfo1.prepare(currentSampleRate); lfo2.prepare(currentSampleRate);
 }
 
 void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, double bpm, bool isNegative)
@@ -65,7 +64,6 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
     const int numSamples = buffer.getNumSamples();
     polarityMultiplier = isNegative ? -1.0f : 1.0f;
 
-    // --- CALCUL DES LFO (PAR BLOC) ---
     auto getLfoHz = [&](int syncIdx, float rate) {
         if (syncIdx == 0) return rate; 
         float beatsPerSec = (float)bpm / 60.0f;
@@ -89,33 +87,30 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
     lfo1.setShape(p.lfo1Shape); lfo1.setPulseWidth(p.lfo1Pw);
     lfo2.setShape(p.lfo2Shape); lfo2.setPulseWidth(p.lfo2Pw);
 
-    float l1 = p.lfo1Bypass ? 0.0f : lfo1.processBlock(lfo1Hz, numSamples, 0.0f);
-    float l2 = p.lfo2Bypass ? 0.0f : lfo2.processBlock(lfo2Hz, numSamples, 0.0f);
+    float l1 = p.lfo1Bypass ? 0.0f : lfo1.processBlock(lfo1Hz, numSamples, p.lfo1Phase);
+    float l2 = p.lfo2Bypass ? 0.0f : lfo2.processBlock(lfo2Hz, numSamples, p.lfo2Phase);
 
-    // --- MATRICE DE MODULATION ---
-    auto mod = [&](float base, float d1, float d2, float maxVal) {
-        return juce::jlimit(0.0f, maxVal, base + (l1 * d1) + (l2 * d2));
+    // CORRECTION DU BUG : On prend en compte les valeurs minimales et maximales réelles
+    auto mod = [&](float base, float d1, float d2, float minVal, float maxVal) {
+        return juce::jlimit(minVal, maxVal, base + (l1 * d1) + (l2 * d2));
     };
 
-    float mMacro = mod(p.macro, p.m1_macro, p.m2_macro, 1.0f);
+    float mMacro = mod(p.macro, p.m1_macro, p.m2_macro, 0.0f, 1.0f);
     float macroBoost = mMacro > 0.001f ? mMacro : 0.0f;
     
-    float targetPitch = mod(p.pitch + (macroBoost * 24.0f), p.m1_pitch * 24.0f, p.m2_pitch * 24.0f, 36.0f);
-    if (p.pitch + (l1*p.m1_pitch) + (l2*p.m2_pitch) < 0) targetPitch = -targetPitch; 
-    
-    float targetFb = mod(p.feedback + (macroBoost * 0.1f), p.m1_feed, p.m2_feed, 0.99f);
-    float targetInCut = mod(p.inputCutoff * (1.0f + macroBoost * 3.0f), p.m1_incut * 10000.0f, p.m2_incut * 10000.0f, 20000.0f);
-    float targetLoopCut = mod(p.loopCutoff * (1.0f + macroBoost * 3.0f), p.m1_loopcut * 10000.0f, p.m2_loopcut * 10000.0f, 20000.0f);
-    float targetHbeta = mod(p.pluck, p.m1_hbeta, p.m2_hbeta, 1.0f);
-    float targetInharm = mod(p.inharm, p.m1_inharm, p.m2_inharm, 0.99f);
-    float targetCross = mod(p.crossFb, p.m1_cross, p.m2_cross, 0.98f);
-    float targetSelf = mod(p.selfMod, p.m1_self, p.m2_self, 1.0f);
-    float targetDrift = mod(p.jitter, p.m1_drift, p.m2_drift, 1.0f);
-    float targetDryWet = mod(p.dryWet, p.m1_drywet, p.m2_drywet, 1.0f);
-    float targetWetGain = mod(p.wetGain, p.m1_wetgain, p.m2_wetgain, 2.0f);
+    float targetPitch = mod(p.pitch + (macroBoost * 24.0f), p.m1_pitch * 24.0f, p.m2_pitch * 24.0f, -36.0f, 36.0f);
+    float targetFb = mod(p.feedback + (macroBoost * 0.1f), p.m1_feed, p.m2_feed, 0.0f, 0.99f);
+    float targetInCut = mod(p.inputCutoff * (1.0f + macroBoost * 3.0f), p.m1_incut * 10000.0f, p.m2_incut * 10000.0f, 20.0f, 20000.0f);
+    float targetLoopCut = mod(p.loopCutoff * (1.0f + macroBoost * 3.0f), p.m1_loopcut * 10000.0f, p.m2_loopcut * 10000.0f, 20.0f, 20000.0f);
+    float targetHbeta = mod(p.pluck, p.m1_hbeta, p.m2_hbeta, 0.0f, 1.0f);
+    float targetInharm = mod(p.inharm, p.m1_inharm, p.m2_inharm, 0.0f, 0.99f);
+    float targetCross = mod(p.crossFb, p.m1_cross, p.m2_cross, 0.0f, 0.98f);
+    float targetSelf = mod(p.selfMod, p.m1_self, p.m2_self, 0.0f, 1.0f);
+    float targetDrift = mod(p.jitter, p.m1_drift, p.m2_drift, 0.0f, 1.0f);
+    float targetDryWet = mod(p.dryWet, p.m1_drywet, p.m2_drywet, 0.0f, 1.0f);
+    float targetWetGain = mod(p.wetGain, p.m1_wetgain, p.m2_wetgain, 0.0f, 2.0f);
 
-    // --- LISSAGES ---
-    pitchSemitonesSmoothed.setTargetValue(juce::jlimit(-36.0f, 36.0f, targetPitch));
+    pitchSemitonesSmoothed.setTargetValue(targetPitch);
     feedbackSmoothed.setTargetValue(targetFb);
     dryWetSmoothed.setTargetValue(targetDryWet);
     jitterSmoothed.setTargetValue(targetDrift);
@@ -125,8 +120,8 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
     inharmSmoothed.setTargetValue(targetInharm);
     pluckSmoothed.setTargetValue(targetHbeta);
 
-    currentInputCutoff = juce::jlimit(20.0f, 20000.0f, targetInCut);
-    currentLoopCutoff = juce::jlimit(20.0f, 20000.0f, targetLoopCut);
+    currentInputCutoff = targetInCut;
+    currentLoopCutoff = targetLoopCut;
 
     for (int ch = 0; ch < numChannels; ++ch) {
         channels[(size_t) ch].inputFilter.setCutoffFrequency(currentInputCutoff);
