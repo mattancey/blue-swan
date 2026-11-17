@@ -67,6 +67,10 @@ private:
 
     std::vector<ChannelState> channels;
     
+    LFO lfo1, lfo2;
+    float lfo1Phase = 0.0f;
+    float lfo2Phase = 0.0f;
+
     juce::SmoothedValue<float> pitchSemitonesSmoothed;
     juce::SmoothedValue<float> feedbackSmoothed;
     juce::SmoothedValue<float> dryWetSmoothed;
@@ -75,8 +79,6 @@ private:
     juce::SmoothedValue<float> selfModSmoothed;
     juce::SmoothedValue<float> wetGainSmoothed;
     juce::SmoothedValue<float> gateSmoothed;
-    
-    // Lissages pour l'EKS
     juce::SmoothedValue<float> inharmSmoothed;
     juce::SmoothedValue<float> pluckSmoothed;
     
