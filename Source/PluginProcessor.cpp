@@ -9,11 +9,18 @@ BlueSwanAudioProcessor::BlueSwanAudioProcessor()
 
 BlueSwanAudioProcessor::~BlueSwanAudioProcessor() {}
 
-void BlueSwanAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) { resonator.prepare(sampleRate, samplesPerBlock, 2); }
+void BlueSwanAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) { 
+    resonator.prepare(sampleRate, samplesPerBlock, 2); 
+    updateLatency();
+}
 void BlueSwanAudioProcessor::releaseResources() { resonator.reset(); }
 
 bool BlueSwanAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const {
     return (layouts.getMainInputChannelSet() == juce::AudioChannelSet::stereo() && layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo());
+}
+
+void BlueSwanAudioProcessor::updateLatency() {
+    setLatencySamples(resonator.getLatency());
 }
 
 void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
@@ -53,6 +60,15 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     p.m1_wetgain = get(Params::m1_wetgain); p.m2_wetgain = get(Params::m2_wetgain);
     p.m1_macro = get(Params::m1_macro); p.m2_macro = get(Params::m2_macro);
     p.m1_lfo2 = get(Params::m1_lfo2); p.m2_lfo1 = get(Params::m2_lfo1);
+
+    // NOUVEAU : Oversampling
+    int osChoice = (int)get(Params::oversampling); // 0=1x, 1=2x, 2=4x
+    int factor = (osChoice == 0) ? 1 : (osChoice == 1) ? 2 : 4;
+    
+    if (factor != resonator.getLatency()) { // Hack pour détecter le changement
+        resonator.setOversampling(factor);
+        updateLatency();
+    }
 
     bool isNeg = get(Params::polarity) > 0.5f;
     resonator.process(buffer, p, bpm, isNeg);
