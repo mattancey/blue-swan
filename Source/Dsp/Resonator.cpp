@@ -90,7 +90,6 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
     float l1 = p.lfo1Bypass ? 0.0f : lfo1.processBlock(lfo1Hz, numSamples, p.lfo1Phase);
     float l2 = p.lfo2Bypass ? 0.0f : lfo2.processBlock(lfo2Hz, numSamples, p.lfo2Phase);
 
-    // CORRECTION DU BUG ICI : minVal et maxVal sont respectés
     auto mod = [&](float base, float d1, float d2, float minVal, float maxVal) {
         return juce::jlimit(minVal, maxVal, base + (l1 * d1) + (l2 * d2));
     };
@@ -99,7 +98,7 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
     float macroBoost = mMacro > 0.001f ? mMacro : 0.0f;
     
     float targetPitch = mod(p.pitch + (macroBoost * 24.0f), p.m1_pitch * 24.0f, p.m2_pitch * 24.0f, -36.0f, 36.0f);
-    float targetFb = mod(p.feedback + (macroBoost * 0.1f), p.m1_feed, p.m2_feed, 0.0f, 0.99f);
+    float targetFb = mod(p.feedback + (macroBoost * 0.1f), p.m1_feed, p.m2_feed, 0.0f, 0.98f); // Aligné sur V0.4
     float targetInCut = mod(p.inputCutoff * (1.0f + macroBoost * 3.0f), p.m1_incut * 10000.0f, p.m2_incut * 10000.0f, 20.0f, 20000.0f);
     float targetLoopCut = mod(p.loopCutoff * (1.0f + macroBoost * 3.0f), p.m1_loopcut * 10000.0f, p.m2_loopcut * 10000.0f, 20.0f, 20000.0f);
     float targetHbeta = mod(p.pluck, p.m1_hbeta, p.m2_hbeta, 0.0f, 1.0f);
@@ -144,10 +143,13 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
         
         float delaySamples = semitonesToDelaySamples(pitchSt);
         
-        float a = juce::jlimit(-0.99f, 0.99f, inharm * 0.99f);
-        float groupDelayPerFilter = (1.0f + a) / (1.0f - a + 0.0001f);
-        float totalGroupDelay = 24.0f * groupDelayPerFilter;
-        delaySamples -= totalGroupDelay;
+        // BYPASS ABSOLU DE L'INHARM SI A ZERO
+        if (inharm > 0.001f) {
+            float a = juce::jlimit(-0.99f, 0.99f, inharm * 0.99f);
+            float groupDelayPerFilter = (1.0f + a) / (1.0f - a + 0.0001f);
+            float totalGroupDelay = 24.0f * groupDelayPerFilter;
+            delaySamples -= totalGroupDelay;
+        }
 
         if (drift > 0.001f) {
             for (int ch = 0; ch < numChannels; ++ch) {
@@ -187,9 +189,13 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
             state.delayLine.setDelay(delaySamples);
             float delayed = state.delayLine.popSample(0);
 
-            for (int j = 0; j < 24; ++j) {
-                state.inharmAllpass[j].setCoeff(a);
-                delayed = state.inharmAllpass[j].process(delayed);
+            // BYPASS ABSOLU DES FILTRES SI INHARM EST A ZERO
+            if (inharm > 0.001f) {
+                float a = juce::jlimit(-0.99f, 0.99f, inharm * 0.99f);
+                for (int j = 0; j < 24; ++j) {
+                    state.inharmAllpass[j].setCoeff(a);
+                    delayed = state.inharmAllpass[j].process(delayed);
+                }
             }
 
             float loopFiltered = state.loopFilter.process(delayed);
@@ -208,13 +214,16 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
                 crossFeedbackSignal = loopOutputs[otherCh] * crossFB;
             }
 
-            state.pluckDelay.setDelay(pluckDelayTime);
-            float pluckDelayed = state.pluckDelay.popSample(0);
-            float mixAmt = juce::jlimit(0.0f, 1.0f, pluck * 1.2f);
-            float pluckFiltered = dry * (1.0f - mixAmt) + (dry - pluckDelayed) * mixAmt;
-            pluckFiltered *= (1.0f + (pluck * 0.5f)); 
-            
-            state.pluckDelay.pushSample(0, dry);
+            float pluckFiltered = dry;
+            // BYPASS ABSOLU DU PLUCK SI A ZERO
+            if (pluck > 0.001f) {
+                state.pluckDelay.setDelay(pluckDelayTime);
+                float pluckDelayed = state.pluckDelay.popSample(0);
+                float mixAmt = juce::jlimit(0.0f, 1.0f, pluck * 1.2f);
+                pluckFiltered = dry * (1.0f - mixAmt) + (dry - pluckDelayed) * mixAmt;
+                pluckFiltered *= (1.0f + (pluck * 0.5f)); 
+                state.pluckDelay.pushSample(0, dry);
+            }
 
             const float inputFiltered = state.inputFilter.processSample(0, pluckFiltered);
             float toWrite = inputFiltered + (loopOutputs[ch] * fb) + crossFeedbackSignal;
