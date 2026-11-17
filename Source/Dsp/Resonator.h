@@ -47,12 +47,23 @@ private:
         void reset() { z = 0.0f; }
     };
 
+    // Filtre Allpass pour l'Inharm
+    struct Allpass {
+        float a = 0.0f;
+        float x1 = 0.0f, y1 = 0.0f;
+        void setCoeff(float coeff) { a = juce::jlimit(-0.99f, 0.99f, coeff); }
+        float process(float x) noexcept { float y = -a * x + x1 + a * y1; x1 = x; y1 = y; return y; }
+        void reset() { x1 = 0.0f; y1 = 0.0f; }
+    };
+
     struct ChannelState {
         juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Lagrange3rd> delayLine { (int) maxDelaySamples };
+        juce::dsp::DelayLine<float> pluckDelay { 4000 }; // Pour Hbeta
         juce::dsp::StateVariableTPTFilter<float> inputFilter;
         OnePoleLP loopFilter;
         DCBlocker dcBlocker;
         OnePoleLP modFilter;
+        Allpass inharmAllpass[24]; // Pour Inharm
     };
 
     std::vector<ChannelState> channels;
