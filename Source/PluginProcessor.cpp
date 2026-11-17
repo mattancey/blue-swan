@@ -55,6 +55,8 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     p.m2_lfo1 = get(Params::m2_lfo1);
 
     bool isNeg = get(Params::polarity) > 0.5f;
+    
+    // On envoie tout, mais le Resonator ignore la matrice pour l'instant
     resonator.process(buffer, p, bpm, isNeg);
 }
 
