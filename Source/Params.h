@@ -3,10 +3,9 @@
 
 namespace Params
 {
+    // --- LES PARAMETRES DE LA V0.4 DANS LE MEME ORDRE ---
     inline constexpr auto pitch = "pitch";
     inline constexpr auto feedback = "feedback"; 
-    inline constexpr auto pluck = "pluck";
-    inline constexpr auto inharm = "inharm";
     inline constexpr auto inputCutoff = "inputCutoff";
     inline constexpr auto loopCutoff = "loopCutoff";
     inline constexpr auto dryWet = "dryWet";
@@ -16,6 +15,10 @@ namespace Params
     inline constexpr auto polarity = "polarity";
     inline constexpr auto selfMod = "selfMod";
     inline constexpr auto wetGain = "wetGain";
+
+    // --- LES NOUVEAUX PARAMETRES AJOUTES A LA FIN ---
+    inline constexpr auto pluck = "pluck";
+    inline constexpr auto inharm = "inharm";
 
     inline constexpr auto lfo1Sync = "lfo1Sync";
     inline constexpr auto lfo1Rate = "lfo1Rate";
@@ -41,8 +44,7 @@ namespace Params
     inline constexpr auto m1_drywet = "m1_drywet"; inline constexpr auto m2_drywet = "m2_drywet";
     inline constexpr auto m1_wetgain = "m1_wetgain"; inline constexpr auto m2_wetgain = "m2_wetgain";
     inline constexpr auto m1_macro = "m1_macro"; inline constexpr auto m2_macro = "m2_macro";
-    inline constexpr auto m1_lfo2 = "m1_lfo2"; 
-    inline constexpr auto m2_lfo1 = "m2_lfo1"; 
+    inline constexpr auto m1_lfo2 = "m1_lfo2"; inline constexpr auto m2_lfo1 = "m2_lfo1"; 
 
     inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     {
@@ -50,17 +52,19 @@ namespace Params
         
         layout.add(std::make_unique<juce::AudioParameterFloat>(pitch, "Pitch", juce::NormalisableRange<float>(-36.0f, 36.0f, 0.01f), 0.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>(feedback, "Feedback", juce::NormalisableRange<float>(0.0f, 0.99f, 0.001f), 0.85f));
-        layout.add(std::make_unique<juce::AudioParameterFloat>(pluck, "H\u03B2", juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.0f));
-        layout.add(std::make_unique<juce::AudioParameterFloat>(inharm, "Inharm", juce::NormalisableRange<float>(0.0f, 0.99f, 0.001f), 0.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>(inputCutoff, "In Cutoff", juce::NormalisableRange<float>(100.0f, 20000.0f, 1.0f, 0.3f), 8000.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>(loopCutoff, "Loop Cutoff", juce::NormalisableRange<float>(100.0f, 20000.0f, 1.0f, 0.3f), 4000.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>(dryWet, "Dry/Wet", juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.5f));
         layout.add(std::make_unique<juce::AudioParameterFloat>(macro, "Macro", juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>(jitter, "Drift", juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>(crossFb, "Cross FB", juce::NormalisableRange<float>(0.0f, 0.98f, 0.001f), 0.0f));
-        layout.add(std::make_unique<juce::AudioParameterFloat>(selfMod, "Self-Mod", juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.0f));
         layout.add(std::make_unique<juce::AudioParameterChoice>(polarity, "Polarity", juce::StringArray{"Positive", "Negative"}, 0));
+        layout.add(std::make_unique<juce::AudioParameterFloat>(selfMod, "Self-Mod", juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>(wetGain, "Wet Gain", juce::NormalisableRange<float>(0.0f, 2.0f, 0.01f), 1.0f));
+
+        // Les nouveaux à la fin
+        layout.add(std::make_unique<juce::AudioParameterFloat>(pluck, "H\u03B2", juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>(inharm, "Inharm", juce::NormalisableRange<float>(0.0f, 0.99f, 0.001f), 0.0f));
 
         juce::StringArray syncOpts = {"Free", "4 bars", "2 bars", "1 bar", "1/1", "1/1 T", "1/1 D", "1/2", "1/2 T", "1/2 D", "1/4", "1/4 T", "1/4 D", "1/8", "1/8 T", "1/8 D", "1/16", "1/16 T", "1/16 D", "5/4", "6/4", "7/4", "9/4", "18/4"};
         juce::StringArray shapeOpts = {"Sine", "Tri", "Saw Up", "Sqr", "Pulse", "Ramp", "Exp Dec", "Exp Rse", "S&H", "Smth Rnd", "Logistic", "Stairs", "Dbl Sine", "SOMA"};
@@ -93,8 +97,7 @@ namespace Params
         addDepth(m1_drywet, "M1 DryWet"); addDepth(m2_drywet, "M2 DryWet");
         addDepth(m1_wetgain, "M1 WetGain"); addDepth(m2_wetgain, "M2 WetGain");
         addDepth(m1_macro, "M1 Macro"); addDepth(m2_macro, "M2 Macro");
-        addDepth(m1_lfo2, "M1 LFO2"); 
-        addDepth(m2_lfo1, "M2 LFO1"); 
+        addDepth(m1_lfo2, "M1 LFO2"); addDepth(m2_lfo1, "M2 LFO1"); 
 
         return layout;
     }
