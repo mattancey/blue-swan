@@ -256,20 +256,21 @@ void BlueSwanAudioProcessorEditor::resized()
         lfo1SyncBox.setBounds(lfo1Area.removeFromLeft(100).reduced(0, 25)); lfo1SyncBox.setVisible(true);
         lfo1ShapeBox.setBounds(lfo1Area.removeFromLeft(100).reduced(0, 25)); lfo1ShapeBox.setVisible(true);
         
-        auto rate1Box = lfo1Area.removeFromLeft(90).reduced(10, 0);
-        auto rate1Left = rate1Box.removeFromLeft(40);
+        // POTARDS AGRANDIS (130px au lieu de 90px)
+        auto rate1Box = lfo1Area.removeFromLeft(130).reduced(10, 0);
+        auto rate1Left = rate1Box.removeFromLeft(45);
         lfo1RateNameLabel.setBounds(rate1Left.removeFromTop(25)); lfo1RateNameLabel.setVisible(true);
         lfo1RateValueLabel.setBounds(rate1Left.removeFromTop(20).reduced(0, 2)); lfo1RateValueLabel.setVisible(true);
         lfo1RateSlider.setBounds(rate1Box); lfo1RateSlider.setVisible(true);
         
-        auto phase1Box = lfo1Area.removeFromLeft(90).reduced(10, 0);
-        auto phase1Left = phase1Box.removeFromLeft(40);
+        auto phase1Box = lfo1Area.removeFromLeft(130).reduced(10, 0);
+        auto phase1Left = phase1Box.removeFromLeft(45);
         lfo1PhaseNameLabel.setBounds(phase1Left.removeFromTop(25)); lfo1PhaseNameLabel.setVisible(true);
         lfo1PhaseValueLabel.setBounds(phase1Left.removeFromTop(20).reduced(0, 2)); lfo1PhaseValueLabel.setVisible(true);
         lfo1PhaseSlider.setBounds(phase1Box); lfo1PhaseSlider.setVisible(true);
         
-        auto pw1Box = lfo1Area.removeFromLeft(90).reduced(10, 0);
-        auto pw1Left = pw1Box.removeFromLeft(40);
+        auto pw1Box = lfo1Area.removeFromLeft(130).reduced(10, 0);
+        auto pw1Left = pw1Box.removeFromLeft(45);
         lfo1PwNameLabel.setBounds(pw1Left.removeFromTop(25)); lfo1PwNameLabel.setVisible(true);
         lfo1PwValueLabel.setBounds(pw1Left.removeFromTop(20).reduced(0, 2)); lfo1PwValueLabel.setVisible(true);
         lfo1PwSlider.setBounds(pw1Box); lfo1PwSlider.setVisible(true);
@@ -283,20 +284,21 @@ void BlueSwanAudioProcessorEditor::resized()
         lfo2SyncBox.setBounds(lfo2Area.removeFromLeft(100).reduced(0, 25)); lfo2SyncBox.setVisible(true);
         lfo2ShapeBox.setBounds(lfo2Area.removeFromLeft(100).reduced(0, 25)); lfo2ShapeBox.setVisible(true);
         
-        auto rate2Box = lfo2Area.removeFromLeft(90).reduced(10, 0);
-        auto rate2Left = rate2Box.removeFromLeft(40);
+        // POTARDS AGRANDIS
+        auto rate2Box = lfo2Area.removeFromLeft(130).reduced(10, 0);
+        auto rate2Left = rate2Box.removeFromLeft(45);
         lfo2RateNameLabel.setBounds(rate2Left.removeFromTop(25)); lfo2RateNameLabel.setVisible(true);
         lfo2RateValueLabel.setBounds(rate2Left.removeFromTop(20).reduced(0, 2)); lfo2RateValueLabel.setVisible(true);
         lfo2RateSlider.setBounds(rate2Box); lfo2RateSlider.setVisible(true);
         
-        auto phase2Box = lfo2Area.removeFromLeft(90).reduced(10, 0);
-        auto phase2Left = phase2Box.removeFromLeft(40);
+        auto phase2Box = lfo2Area.removeFromLeft(130).reduced(10, 0);
+        auto phase2Left = phase2Box.removeFromLeft(45);
         lfo2PhaseNameLabel.setBounds(phase2Left.removeFromTop(25)); lfo2PhaseNameLabel.setVisible(true);
         lfo2PhaseValueLabel.setBounds(phase2Left.removeFromTop(20).reduced(0, 2)); lfo2PhaseValueLabel.setVisible(true);
         lfo2PhaseSlider.setBounds(phase2Box); lfo2PhaseSlider.setVisible(true);
         
-        auto pw2Box = lfo2Area.removeFromLeft(90).reduced(10, 0);
-        auto pw2Left = pw2Box.removeFromLeft(40);
+        auto pw2Box = lfo2Area.removeFromLeft(130).reduced(10, 0);
+        auto pw2Left = pw2Box.removeFromLeft(45);
         lfo2PwNameLabel.setBounds(pw2Left.removeFromTop(25)); lfo2PwNameLabel.setVisible(true);
         lfo2PwValueLabel.setBounds(pw2Left.removeFromTop(20).reduced(0, 2)); lfo2PwValueLabel.setVisible(true);
         lfo2PwSlider.setBounds(pw2Box); lfo2PwSlider.setVisible(true);
