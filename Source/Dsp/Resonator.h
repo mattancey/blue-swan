@@ -47,7 +47,6 @@ private:
         void reset() { z = 0.0f; }
     };
 
-    // Filtre Allpass pour l'Inharm
     struct Allpass {
         float a = 0.0f;
         float x1 = 0.0f, y1 = 0.0f;
@@ -58,12 +57,12 @@ private:
 
     struct ChannelState {
         juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Lagrange3rd> delayLine { (int) maxDelaySamples };
-        juce::dsp::DelayLine<float> pluckDelay { 4000 }; // Pour Hbeta
+        juce::dsp::DelayLine<float> pluckDelay { 4000 };
         juce::dsp::StateVariableTPTFilter<float> inputFilter;
         OnePoleLP loopFilter;
         DCBlocker dcBlocker;
         OnePoleLP modFilter;
-        Allpass inharmAllpass[24]; // Pour Inharm
+        Allpass inharmAllpass[24];
     };
 
     std::vector<ChannelState> channels;
@@ -76,6 +75,10 @@ private:
     juce::SmoothedValue<float> selfModSmoothed;
     juce::SmoothedValue<float> wetGainSmoothed;
     juce::SmoothedValue<float> gateSmoothed;
+    
+    // Lissages pour l'EKS
+    juce::SmoothedValue<float> inharmSmoothed;
+    juce::SmoothedValue<float> pluckSmoothed;
     
     float polarityMultiplier = 1.0f;
 
