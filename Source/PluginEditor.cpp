@@ -75,7 +75,7 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     lfo2RowLabel.setText("LFO 2", juce::dontSendNotification); lfo2RowLabel.setJustificationType(juce::Justification::centredLeft); lfo2RowLabel.setColour(juce::Label::textColourId, juce::Colours::white); lfo2RowLabel.setFont(juce::Font(juce::FontOptions(16.0f))); addChildComponent(lfo2RowLabel);
 
     juce::StringArray syncs = {"Free", "4 bars", "2 bars", "1 bar", "1/1", "1/1 T", "1/1 D", "1/2", "1/2 T", "1/2 D", "1/4", "1/4 T", "1/4 D", "1/8", "1/8 T", "1/8 D", "1/16", "1/16 T", "1/16 D", "5/4", "6/4", "7/4", "9/4", "18/4"};
-    juce::StringArray shapes = {"Sine", "Tri", "Saw Up", "Sqr", "Pulse", "Ramp", "Exp Dec", "Exp Rse", "S&H", "Smth Rnd", "Logistic", "Stairs", "Dbl Sine", "SOMA"};
+    juce::StringArray shapes = {"Sine", "Tri", "Saw Up", "Sqr", "Pulse", "Ramp", "Exp Rse", "S&H", "Smth Rnd", "Logistic", "Stairs", "Dbl Sine", "SOMA"};
     
     lfo1SyncBox.addItemList(syncs, 1); addChildComponent(lfo1SyncBox);
     lfo1ShapeBox.addItemList(shapes, 1); addChildComponent(lfo1ShapeBox);
@@ -99,18 +99,24 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
         addChildComponent(valLabel);
     };
 
-    setupLfoKnob(lfo1RateSlider, lfo1RateNameLabel, lfo1RateValueLabel, "Rate/Ph");
+    setupLfoKnob(lfo1RateSlider, lfo1RateNameLabel, lfo1RateValueLabel, "Rate");
+    setupLfoKnob(lfo1PhaseSlider, lfo1PhaseNameLabel, lfo1PhaseValueLabel, "Phase");
     setupLfoKnob(lfo1PwSlider, lfo1PwNameLabel, lfo1PwValueLabel, "PW");
-    setupLfoKnob(lfo2RateSlider, lfo2RateNameLabel, lfo2RateValueLabel, "Rate/Ph");
+    
+    setupLfoKnob(lfo2RateSlider, lfo2RateNameLabel, lfo2RateValueLabel, "Rate");
+    setupLfoKnob(lfo2PhaseSlider, lfo2PhaseNameLabel, lfo2PhaseValueLabel, "Phase");
     setupLfoKnob(lfo2PwSlider, lfo2PwNameLabel, lfo2PwValueLabel, "PW");
 
     lfo1SyncAtt = std::make_unique<ComboAttachment>(processorRef.apvts, Params::lfo1Sync, lfo1SyncBox);
     lfo1ShapeAtt = std::make_unique<ComboAttachment>(processorRef.apvts, Params::lfo1Shape, lfo1ShapeBox);
     lfo1RateAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::lfo1Rate, lfo1RateSlider);
+    lfo1PhaseAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::lfo1Phase, lfo1PhaseSlider);
     lfo1PwAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::lfo1Pw, lfo1PwSlider);
+    
     lfo2SyncAtt = std::make_unique<ComboAttachment>(processorRef.apvts, Params::lfo2Sync, lfo2SyncBox);
     lfo2ShapeAtt = std::make_unique<ComboAttachment>(processorRef.apvts, Params::lfo2Shape, lfo2ShapeBox);
     lfo2RateAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::lfo2Rate, lfo2RateSlider);
+    lfo2PhaseAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::lfo2Phase, lfo2PhaseSlider);
     lfo2PwAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::lfo2Pw, lfo2PwSlider);
 
     polarityAtt = std::make_unique<ComboAttachment>(processorRef.apvts, Params::polarity, polarityBox);
@@ -144,8 +150,11 @@ void BlueSwanAudioProcessorEditor::timerCallback()
     }
 
     lfo1RateValueLabel.setText(juce::String(lfo1RateSlider.getValue(), 2), juce::dontSendNotification);
+    lfo1PhaseValueLabel.setText(juce::String(lfo1PhaseSlider.getValue(), 0) + "°", juce::dontSendNotification);
     lfo1PwValueLabel.setText(juce::String(lfo1PwSlider.getValue(), 2), juce::dontSendNotification);
+    
     lfo2RateValueLabel.setText(juce::String(lfo2RateSlider.getValue(), 2), juce::dontSendNotification);
+    lfo2PhaseValueLabel.setText(juce::String(lfo2PhaseSlider.getValue(), 0) + "°", juce::dontSendNotification);
     lfo2PwValueLabel.setText(juce::String(lfo2PwSlider.getValue(), 2), juce::dontSendNotification);
 
     float fb = processorRef.apvts.getRawParameterValue(Params::feedback)->load();
@@ -244,17 +253,23 @@ void BlueSwanAudioProcessorEditor::resized()
         auto lfo1Row = lfo1Area.removeFromLeft(60);
         lfo1RowLabel.setBounds(lfo1Row.getX(), lfo1Row.getY() + 30, 50, 20); lfo1RowLabel.setVisible(true);
         
-        lfo1SyncBox.setBounds(lfo1Area.removeFromLeft(120).reduced(0, 25)); lfo1SyncBox.setVisible(true);
-        lfo1ShapeBox.setBounds(lfo1Area.removeFromLeft(120).reduced(0, 25)); lfo1ShapeBox.setVisible(true);
+        lfo1SyncBox.setBounds(lfo1Area.removeFromLeft(100).reduced(0, 25)); lfo1SyncBox.setVisible(true);
+        lfo1ShapeBox.setBounds(lfo1Area.removeFromLeft(100).reduced(0, 25)); lfo1ShapeBox.setVisible(true);
         
-        auto rate1Box = lfo1Area.removeFromLeft(120).reduced(10, 0);
-        auto rate1Left = rate1Box.removeFromLeft(50);
+        auto rate1Box = lfo1Area.removeFromLeft(90).reduced(10, 0);
+        auto rate1Left = rate1Box.removeFromLeft(40);
         lfo1RateNameLabel.setBounds(rate1Left.removeFromTop(25)); lfo1RateNameLabel.setVisible(true);
         lfo1RateValueLabel.setBounds(rate1Left.removeFromTop(20).reduced(0, 2)); lfo1RateValueLabel.setVisible(true);
         lfo1RateSlider.setBounds(rate1Box); lfo1RateSlider.setVisible(true);
         
-        auto pw1Box = lfo1Area.removeFromLeft(120).reduced(10, 0);
-        auto pw1Left = pw1Box.removeFromLeft(50);
+        auto phase1Box = lfo1Area.removeFromLeft(90).reduced(10, 0);
+        auto phase1Left = phase1Box.removeFromLeft(40);
+        lfo1PhaseNameLabel.setBounds(phase1Left.removeFromTop(25)); lfo1PhaseNameLabel.setVisible(true);
+        lfo1PhaseValueLabel.setBounds(phase1Left.removeFromTop(20).reduced(0, 2)); lfo1PhaseValueLabel.setVisible(true);
+        lfo1PhaseSlider.setBounds(phase1Box); lfo1PhaseSlider.setVisible(true);
+        
+        auto pw1Box = lfo1Area.removeFromLeft(90).reduced(10, 0);
+        auto pw1Left = pw1Box.removeFromLeft(40);
         lfo1PwNameLabel.setBounds(pw1Left.removeFromTop(25)); lfo1PwNameLabel.setVisible(true);
         lfo1PwValueLabel.setBounds(pw1Left.removeFromTop(20).reduced(0, 2)); lfo1PwValueLabel.setVisible(true);
         lfo1PwSlider.setBounds(pw1Box); lfo1PwSlider.setVisible(true);
@@ -265,17 +280,23 @@ void BlueSwanAudioProcessorEditor::resized()
         auto lfo2Row = lfo2Area.removeFromLeft(60);
         lfo2RowLabel.setBounds(lfo2Row.getX(), lfo2Row.getY() + 30, 50, 20); lfo2RowLabel.setVisible(true);
         
-        lfo2SyncBox.setBounds(lfo2Area.removeFromLeft(120).reduced(0, 25)); lfo2SyncBox.setVisible(true);
-        lfo2ShapeBox.setBounds(lfo2Area.removeFromLeft(120).reduced(0, 25)); lfo2ShapeBox.setVisible(true);
+        lfo2SyncBox.setBounds(lfo2Area.removeFromLeft(100).reduced(0, 25)); lfo2SyncBox.setVisible(true);
+        lfo2ShapeBox.setBounds(lfo2Area.removeFromLeft(100).reduced(0, 25)); lfo2ShapeBox.setVisible(true);
         
-        auto rate2Box = lfo2Area.removeFromLeft(120).reduced(10, 0);
-        auto rate2Left = rate2Box.removeFromLeft(50);
+        auto rate2Box = lfo2Area.removeFromLeft(90).reduced(10, 0);
+        auto rate2Left = rate2Box.removeFromLeft(40);
         lfo2RateNameLabel.setBounds(rate2Left.removeFromTop(25)); lfo2RateNameLabel.setVisible(true);
         lfo2RateValueLabel.setBounds(rate2Left.removeFromTop(20).reduced(0, 2)); lfo2RateValueLabel.setVisible(true);
         lfo2RateSlider.setBounds(rate2Box); lfo2RateSlider.setVisible(true);
         
-        auto pw2Box = lfo2Area.removeFromLeft(120).reduced(10, 0);
-        auto pw2Left = pw2Box.removeFromLeft(50);
+        auto phase2Box = lfo2Area.removeFromLeft(90).reduced(10, 0);
+        auto phase2Left = phase2Box.removeFromLeft(40);
+        lfo2PhaseNameLabel.setBounds(phase2Left.removeFromTop(25)); lfo2PhaseNameLabel.setVisible(true);
+        lfo2PhaseValueLabel.setBounds(phase2Left.removeFromTop(20).reduced(0, 2)); lfo2PhaseValueLabel.setVisible(true);
+        lfo2PhaseSlider.setBounds(phase2Box); lfo2PhaseSlider.setVisible(true);
+        
+        auto pw2Box = lfo2Area.removeFromLeft(90).reduced(10, 0);
+        auto pw2Left = pw2Box.removeFromLeft(40);
         lfo2PwNameLabel.setBounds(pw2Left.removeFromTop(25)); lfo2PwNameLabel.setVisible(true);
         lfo2PwValueLabel.setBounds(pw2Left.removeFromTop(20).reduced(0, 2)); lfo2PwValueLabel.setVisible(true);
         lfo2PwSlider.setBounds(pw2Box); lfo2PwSlider.setVisible(true);
@@ -289,10 +310,12 @@ void BlueSwanAudioProcessorEditor::resized()
         
         lfo1SyncBox.setVisible(false); lfo1ShapeBox.setVisible(false);
         lfo1RateSlider.setVisible(false); lfo1RateNameLabel.setVisible(false); lfo1RateValueLabel.setVisible(false);
+        lfo1PhaseSlider.setVisible(false); lfo1PhaseNameLabel.setVisible(false); lfo1PhaseValueLabel.setVisible(false);
         lfo1PwSlider.setVisible(false); lfo1PwNameLabel.setVisible(false); lfo1PwValueLabel.setVisible(false);
         
         lfo2SyncBox.setVisible(false); lfo2ShapeBox.setVisible(false);
         lfo2RateSlider.setVisible(false); lfo2RateNameLabel.setVisible(false); lfo2RateValueLabel.setVisible(false);
+        lfo2PhaseSlider.setVisible(false); lfo2PhaseNameLabel.setVisible(false); lfo2PhaseValueLabel.setVisible(false);
         lfo2PwSlider.setVisible(false); lfo2PwNameLabel.setVisible(false); lfo2PwValueLabel.setVisible(false);
     }
 }
