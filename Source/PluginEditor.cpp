@@ -18,14 +18,15 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     setupRotarySlider(wetGainSlider, wetGainLabel, "WetGain", *this);
     setupRotarySlider(jitterSlider, jitterLabel, "Drift", *this);
 
-    // Oversampling Slider
-    oversamplingSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-    oversamplingSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-    addAndMakeVisible(oversamplingSlider);
-    oversamplingLabel.setText("OS", juce::dontSendNotification);
-    oversamplingLabel.setJustificationType(juce::Justification::centred);
-    oversamplingLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-    addAndMakeVisible(oversamplingLabel);
+    // Bouton Oversampling
+    osButton.setLookAndFeel(&osLookAndFeel);
+    osButton.onClick = [this]() {
+        auto* param = processorRef.apvts.getParameter(Params::oversampling);
+        int currentIdx = (int)processorRef.apvts.getRawParameterValue(Params::oversampling)->load();
+        int nextIdx = (currentIdx + 1) % 3;
+        param->setValueNotifyingHost(param->convertTo0to1((float)nextIdx));
+    };
+    addAndMakeVisible(osButton);
 
     polarityBox.addItemList({"Positive", "Negative"}, 1); addAndMakeVisible(polarityBox);
     polarityLabel.setText("Polarity", juce::dontSendNotification); polarityLabel.setJustificationType(juce::Justification::centred); polarityLabel.setColour(juce::Label::textColourId, juce::Colours::white); addAndMakeVisible(polarityLabel);
@@ -142,14 +143,15 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     mainAtts[10] = std::make_unique<SliderAttachment>(processorRef.apvts, Params::wetGain, wetGainSlider);
     mainAtts[11] = std::make_unique<SliderAttachment>(processorRef.apvts, Params::macro, macroSlider);
 
-    // Attachements Oversampling
-    oversamplingAtt = std::make_unique<SliderAttachment>(processorRef.apvts, Params::oversampling, oversamplingSlider);
-
     setSize(850, 480);
     startTimerHz(60); 
 }
 
-BlueSwanAudioProcessorEditor::~BlueSwanAudioProcessorEditor() { stopTimer(); }
+BlueSwanAudioProcessorEditor::~BlueSwanAudioProcessorEditor() 
+{ 
+    osButton.setLookAndFeel(nullptr);
+    stopTimer(); 
+}
 
 void BlueSwanAudioProcessorEditor::timerCallback()
 {
@@ -169,11 +171,11 @@ void BlueSwanAudioProcessorEditor::timerCallback()
     lfo2PhaseValueLabel.setText(juce::String(lfo2PhaseSlider.getValue(), 0) + "°", juce::dontSendNotification);
     lfo2PwValueLabel.setText(juce::String(lfo2PwSlider.getValue(), 2), juce::dontSendNotification);
 
-    // Affichage de l'Oversampling
-    int osValue = (int)oversamplingSlider.getValue();
-    if (osValue == 0) oversamplingLabel.setText("1x", juce::dontSendNotification);
-    else if (osValue == 1) oversamplingLabel.setText("2x", juce::dontSendNotification);
-    else oversamplingLabel.setText("4x", juce::dontSendNotification);
+    // Mise à jour du texte du bouton Oversampling
+    int osIdx = (int)processorRef.apvts.getRawParameterValue(Params::oversampling)->load();
+    if (osIdx == 0) osButton.setButtonText("1x");
+    else if (osIdx == 1) osButton.setButtonText("\u2620"); // Skull unicode
+    else osButton.setButtonText("4x");
 
     float fb = processorRef.apvts.getRawParameterValue(Params::feedback)->load();
     float crossFb = processorRef.apvts.getRawParameterValue(Params::crossFb)->load();
@@ -230,11 +232,12 @@ void BlueSwanAudioProcessorEditor::resized()
     place(inputCutoffSlider, inputCutoffLabel, 0, 0); place(loopCutoffSlider, loopCutoffLabel, 0, 1); place(pitchSlider, pitchLabel, 0, 2);
     place(pluckSlider, pluckLabel, 1, 0); place(inharmSlider, inharmLabel, 1, 1);
     
-    // PLACEMENT DU BOUTON OS SOUS Hβ et Inharm (Ligne 2 de la colonne 1)
+    // Placement du carré Oversampling (ligne 3, colonne 2 => index 1, 2)
     juce::Rectangle<int> osCell(area.getX() + 1 * colWidth, area.getY() + 2 * rowHeight, colWidth, rowHeight);
     osCell = osCell.reduced(10);
-    oversamplingLabel.setBounds(osCell.removeFromTop(20)); 
-    oversamplingSlider.setBounds(osCell);
+    // On le centre et on le réduit de moitié par rapport à un knob
+    int osSize = juce::jmin(osCell.getWidth(), osCell.getHeight()) / 2;
+    osButton.setBounds(osCell.withSizeKeepingCentre(osSize, osSize));
 
     place(decaySlider, decayLabel, 2, 0); place(crossFbSlider, crossFbLabel, 2, 1); place(selfModSlider, selfModLabel, 2, 2);
     place(dryWetSlider, dryWetLabel, 3, 0); place(wetGainSlider, wetGainLabel, 3, 1); place(jitterSlider, jitterLabel, 3, 2);
