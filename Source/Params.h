@@ -45,7 +45,7 @@ namespace Params
     inline constexpr auto m1_macro = "m1_macro"; inline constexpr auto m2_macro = "m2_macro";
     inline constexpr auto m1_lfo2 = "m1_lfo2"; inline constexpr auto m2_lfo1 = "m2_lfo1"; 
 
-    inline constexpr auto oversampling = "oversampling"; // NOUVEAU
+    inline constexpr auto oversampling = "oversampling";
 
     inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     {
@@ -100,8 +100,8 @@ namespace Params
         addDepth(m1_macro, "M1 Macro"); addDepth(m2_macro, "M2 Macro");
         addDepth(m1_lfo2, "M1 LFO2"); addDepth(m2_lfo1, "M2 LFO1"); 
 
-        // Oversampling Choice (1x, 2x, 4x)
-        layout.add(std::make_unique<juce::AudioParameterChoice>(oversampling, "Oversampling", juce::StringArray{"1x", "2x", "4x"}, 0));
+        // Nouveau choix avec le crane
+        layout.add(std::make_unique<juce::AudioParameterChoice>(oversampling, "Oversampling", juce::StringArray{"1x", "\u2620", "4x"}, 0));
 
         return layout;
     }
