@@ -43,9 +43,9 @@ private:
     
     juce::Label lfo1RowLabel, lfo2RowLabel;
 
-    // NOUVEAU : Oversampling
-    juce::Slider oversamplingSlider;
-    juce::Label oversamplingLabel;
+    // --- NOUVEAU BOUTON OVERSAMPLING ---
+    SquareToggleLookAndFeel osLookAndFeel;
+    juce::TextButton osButton;
 
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     using ComboAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
@@ -56,7 +56,6 @@ private:
     std::unique_ptr<ComboAttachment> lfo1SyncAtt, lfo1ShapeAtt, lfo2SyncAtt, lfo2ShapeAtt;
     std::unique_ptr<SliderAttachment> lfo1RateAtt, lfo1PhaseAtt, lfo1PwAtt, lfo2RateAtt, lfo2PhaseAtt, lfo2PwAtt;
     std::unique_ptr<ButtonAttachment> lfo1BypassAtt, lfo2BypassAtt;
-    std::unique_ptr<SliderAttachment> oversamplingAtt; // NOUVEAU
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BlueSwanAudioProcessorEditor)
 };
