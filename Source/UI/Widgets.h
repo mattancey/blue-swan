@@ -39,7 +39,6 @@ public:
     }
 };
 
-// LookAndFeel pour le bouton carré stylé
 class SquareToggleLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
@@ -49,7 +48,6 @@ public:
         g.setColour(juce::Colours::black);
         g.fillRoundedRectangle(bounds, 6.0f);
         
-        // Couleur de la bordure (Cyan du plug-in)
         g.setColour(juce::Colours::cyan);
         g.drawRoundedRectangle(bounds, 6.0f, 2.0f);
         
@@ -62,7 +60,36 @@ public:
     void drawButtonText(juce::Graphics& g, juce::TextButton& button, bool, bool) override
     {
         g.setColour(juce::Colours::white);
-        g.setFont(juce::Font(juce::FontOptions(24.0f, juce::Font::bold))); // Grande police
+        g.setFont(juce::Font(juce::FontOptions(24.0f, juce::Font::bold)));
         g.drawFittedText(button.getButtonText(), button.getLocalBounds(), juce::Justification::centred, 1);
+    }
+};
+
+// Nouveau LookAndFeel pour le Thumb des matrices
+class MatrixLookAndFeel : public juce::LookAndFeel_V4
+{
+public:
+    void drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height,
+                          float sliderPosProportional, float rotaryStartAngle,
+                          float rotaryEndAngle, juce::Slider& slider) override
+    {
+        auto bounds = juce::Rectangle<int>(x, y, width, height).toFloat().reduced(2.0f);
+        auto radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) / 2.0f;
+        auto centre = bounds.getCentre();
+        auto angle = rotaryStartAngle + sliderPosProportional * (rotaryEndAngle - rotaryStartAngle);
+
+        // Dessin du cercle de fond
+        g.setColour(juce::Colours::darkgrey);
+        g.drawEllipse(bounds, 2.0f);
+
+        // Le Thumb (petit bouton)
+        bool isActive = std::abs(slider.getValue()) > 0.001f; 
+        g.setColour(isActive ? juce::Colours::aquamarine : juce::Colours::cyan);
+        
+        // On dessine un petit cercle au bout de la ligne
+        float thumbRadius = radius * 0.15f;
+        float thumbX = centre.x + std::sin(angle) * (radius * 0.8f);
+        float thumbY = centre.y - std::cos(angle) * (radius * 0.8f);
+        g.fillEllipse(thumbX - thumbRadius, thumbY - thumbRadius, thumbRadius * 2.0f, thumbRadius * 2.0f);
     }
 };
