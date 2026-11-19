@@ -19,9 +19,10 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
 {
     currentSampleRate = sampleRate;
     blockSize = samplesPerBlock;
+    this->numChannels = numChannels;
     currentOversampling = 1;
 
-    juce::dsp::ProcessSpec spec { sampleRate, (juce::uint32)samplesPerBlock, 1 };
+    juce::dsp::ProcessSpec spec { sampleRate, (juce::uint32)samplesPerBlock, (juce::uint32)numChannels };
 
     channels.resize((size_t) numChannels);
     for (auto& ch : channels) {
@@ -47,7 +48,7 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
     inharmSmoothed.reset(sampleRate, 0.05);
     pluckSmoothed.reset(sampleRate, 0.05);
     
-    oversampledBuffer.setSize(numChannels, samplesPerBlock * 4);
+    oversampler.reset();
 }
 
 void Resonator::reset()
@@ -61,6 +62,7 @@ void Resonator::reset()
     gateSmoothed.setCurrentAndTargetValue(0.0f);
     inharmSmoothed.setCurrentAndTargetValue(0.0f);
     pluckSmoothed.setCurrentAndTargetValue(0.0f);
+    if (oversampler) oversampler->reset();
 }
 
 void Resonator::setOversampling(int factor)
@@ -71,8 +73,8 @@ void Resonator::setOversampling(int factor)
     if (currentOversampling == 1) {
         oversampler.reset();
     } else {
-        int osFactor = (currentOversampling == 2) ? 1 : 2; // 2x = 1, 4x = 2
-        oversampler = std::make_unique<juce::dsp::Oversampling<float>>(2, osFactor, juce::dsp::Oversampling<float>::filterHalfBandPolyphaseIIR);
+        int osFactor = (currentOversampling == 2) ? 1 : 2; 
+        oversampler = std::make_unique<juce::dsp::Oversampling<float>>(numChannels, osFactor, juce::dsp::Oversampling<float>::filterHalfBandPolyphaseIIR);
         oversampler->initProcessing(blockSize);
     }
 }
@@ -85,35 +87,21 @@ int Resonator::getLatency() const
 
 void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, double bpm, bool isNegative)
 {
+    juce::dsp::AudioBlock<float> block(buffer);
+    
     if (currentOversampling == 1) {
-        processInternal(buffer, p, bpm, isNegative, currentSampleRate);
+        processInternal(block, p, bpm, isNegative, currentSampleRate);
     } else {
-        juce::dsp::AudioBlock<float> block(buffer);
         auto upBlock = oversampler->processSamplesUp(block);
-        
-        // Copier le block upsample dans notre buffer temporaire
-        int numSamplesOS = (int)upBlock.getNumSamples();
-        oversampledBuffer.setSize(upBlock.getNumChannels(), numSamplesOS, false, false, true);
-        for (int ch = 0; ch < upBlock.getNumChannels(); ++ch) {
-            juce::FloatVectorOperations::copy(oversampledBuffer.getWritePointer(ch), upBlock.getChannelPointer(ch), numSamplesOS);
-        }
-        
-        double osRate = currentSampleRate * (double)currentOversampling;
-        processInternal(oversampledBuffer, p, bpm, isNegative, osRate);
-        
-        // Recopier dans le block upsample
-        for (int ch = 0; ch < upBlock.getNumChannels(); ++ch) {
-            juce::FloatVectorOperations::copy(upBlock.getChannelPointer(ch), oversampledBuffer.getReadPointer(ch), numSamplesOS);
-        }
-        
+        processInternal(upBlock, p, bpm, isNegative, currentSampleRate * (double)currentOversampling);
         oversampler->processSamplesDown(block);
     }
 }
 
-void Resonator::processInternal(juce::AudioBuffer<float>& buffer, const ModParams& p, double bpm, bool isNegative, double sr)
+void Resonator::processInternal(juce::dsp::AudioBlock<float>& block, const ModParams& p, double bpm, bool isNegative, double sr)
 {
-    const int numChannels = juce::jmin((int) channels.size(), buffer.getNumChannels());
-    const int numSamples = buffer.getNumSamples();
+    const int numChannels = juce::jmin((int) channels.size(), (int)block.getNumChannels());
+    const int numSamples = (int)block.getNumSamples();
     polarityMultiplier = isNegative ? -1.0f : 1.0f;
 
     auto getLfoHz = [&](int syncIdx, float rate) {
@@ -180,6 +168,12 @@ void Resonator::processInternal(juce::AudioBuffer<float>& buffer, const ModParam
     }
 
     float loopOutputs[2] = { 0.0f, 0.0f };
+    
+    // Pointeurs vers les canaux du block
+    float* channelData[2];
+    for (int ch = 0; ch < numChannels; ++ch) {
+        channelData[ch] = block.getChannelPointer(ch);
+    }
 
     for (int i = 0; i < numSamples; ++i)
     {
@@ -193,7 +187,7 @@ void Resonator::processInternal(juce::AudioBuffer<float>& buffer, const ModParam
         const float inharm = inharmSmoothed.getNextValue();
         const float pluck = pluckSmoothed.getNextValue();
         
-        float delaySamples = semitonesToDelaySamples(pitchSt);
+        float delaySamples = semitonesToDelaySamples(pitchSt, sr);
         
         if (inharm > 0.001f) {
             float a = juce::jlimit(-0.99f, 0.99f, inharm * 0.99f);
@@ -224,7 +218,7 @@ void Resonator::processInternal(juce::AudioBuffer<float>& buffer, const ModParam
 
         float inputAbs = 0.0f;
         for (int ch = 0; ch < numChannels; ++ch) {
-            inputAbs = juce::jmax(inputAbs, std::abs(buffer.getReadPointer(ch)[i]));
+            inputAbs = juce::jmax(inputAbs, std::abs(channelData[ch][i]));
         }
         
         if (inputAbs > 0.00398107f) {
@@ -256,7 +250,7 @@ void Resonator::processInternal(juce::AudioBuffer<float>& buffer, const ModParam
         for (int ch = 0; ch < numChannels; ++ch)
         {
             auto& state = channels[(size_t) ch];
-            float dry = buffer.getReadPointer(ch)[i];
+            float dry = channelData[ch][i];
             
             float crossFeedbackSignal = 0.0f;
             if (numChannels == 2) {
@@ -283,14 +277,14 @@ void Resonator::processInternal(juce::AudioBuffer<float>& buffer, const ModParam
             float wetSignal = loopOutputs[ch] + crossFeedbackSignal;
             wetSignal *= currentWetGain * currentGate;
             
-            buffer.getWritePointer(ch)[i] = dry * (1.0f - wetMix) + wetSignal * wetMix;
+            channelData[ch][i] = dry * (1.0f - wetMix) + wetSignal * wetMix;
         }
     }
 }
 
-float Resonator::semitonesToDelaySamples(float semitones) const noexcept
+float Resonator::semitonesToDelaySamples(float semitones, double sr) const noexcept
 {
     const float freq = baseFreqHz * std::pow(2.0f, semitones / 12.0f);
-    const float delay = (float) (currentSampleRate / freq);
+    const float delay = (float) (sr / freq);
     return juce::jlimit(4.0f, maxDelaySamples - 8.0f, delay);
 }
