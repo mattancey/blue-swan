@@ -61,11 +61,11 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     p.m1_macro = get(Params::m1_macro); p.m2_macro = get(Params::m2_macro);
     p.m1_lfo2 = get(Params::m1_lfo2); p.m2_lfo1 = get(Params::m2_lfo1);
 
-    // NOUVEAU : Oversampling
-    int osChoice = (int)get(Params::oversampling); // 0=1x, 1=2x, 2=4x
+    int osChoice = (int)get(Params::oversampling); 
     int factor = (osChoice == 0) ? 1 : (osChoice == 1) ? 2 : 4;
     
-    if (factor != resonator.getLatency()) { // Hack pour détecter le changement
+    // Mise à jour sécurisée de l'oversampling
+    if (factor != resonator.getOversamplingFactor()) {
         resonator.setOversampling(factor);
         updateLatency();
     }
