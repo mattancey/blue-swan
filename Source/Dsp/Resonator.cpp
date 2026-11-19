@@ -48,11 +48,7 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
     inharmSmoothed.reset(sampleRate, 0.05);
     pluckSmoothed.reset(sampleRate, 0.05);
     
-    os2x = std::make_unique<juce::dsp::Oversampling<float>>(numChannels, 1, juce::dsp::Oversampling<float>::filterHalfBandPolyphaseIIR);
-    os2x->initProcessing(samplesPerBlock);
-    
-    os4x = std::make_unique<juce::dsp::Oversampling<float>>(numChannels, 2, juce::dsp::Oversampling<float>::filterHalfBandPolyphaseIIR);
-    os4x->initProcessing(samplesPerBlock);
+    oversampler.reset();
 }
 
 void Resonator::reset()
@@ -66,18 +62,24 @@ void Resonator::reset()
     gateSmoothed.setCurrentAndTargetValue(0.0f);
     inharmSmoothed.setCurrentAndTargetValue(0.0f);
     pluckSmoothed.setCurrentAndTargetValue(0.0f);
-    if (os2x) os2x->reset();
-    if (os4x) os4x->reset();
+    if (oversampler) oversampler->reset();
 }
 
 void Resonator::setOversampling(int factor)
 {
     if (factor == currentOversampling) return;
     currentOversampling = factor;
-    if (os2x) os2x->reset();
-    if (os4x) os4x->reset();
     
-    // Mise à jour de la fréquence d'échantillonnage pour tous les filtres
+    if (currentOversampling == 1) {
+        oversampler.reset();
+    } else {
+        int osFactor = (currentOversampling == 2) ? 1 : 2; // log2(2) = 1, log2(4) = 2
+        oversampler = std::make_unique<juce::dsp::Oversampling<float>>(numChannels, osFactor, juce::dsp::Oversampling<float>::filterHalfBandPolyphaseIIR);
+        oversampler->initProcessing(blockSize);
+        oversampler->reset();
+    }
+    
+    // RÉINITIALISATION COMPLÈTE DES FILTRES AVEC LA NOUVELLE FRÉQUENCE D'ÉCHANTILLONNAGE
     double newSr = currentSampleRate * currentOversampling;
     juce::dsp::ProcessSpec spec { newSr, (juce::uint32)blockSize, 1 };
     
@@ -94,8 +96,7 @@ void Resonator::setOversampling(int factor)
 
 int Resonator::getLatency() const
 {
-    if (currentOversampling == 2 && os2x) return (int)os2x->getLatencyInSamples();
-    if (currentOversampling == 4 && os4x) return (int)os4x->getLatencyInSamples();
+    if (oversampler) return (int)oversampler->getLatencyInSamples();
     return 0;
 }
 
@@ -105,14 +106,10 @@ void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, do
     
     if (currentOversampling == 1) {
         processInternal(block, p, bpm, isNegative, currentSampleRate);
-    } else if (currentOversampling == 2) {
-        auto upBlock = os2x->processSamplesUp(block);
-        processInternal(upBlock, p, bpm, isNegative, currentSampleRate * 2.0);
-        os2x->processSamplesDown(block);
-    } else if (currentOversampling == 4) {
-        auto upBlock = os4x->processSamplesUp(block);
-        processInternal(upBlock, p, bpm, isNegative, currentSampleRate * 4.0);
-        os4x->processSamplesDown(block);
+    } else {
+        auto upBlock = oversampler->processSamplesUp(block);
+        processInternal(upBlock, p, bpm, isNegative, currentSampleRate * (double)currentOversampling);
+        oversampler->processSamplesDown(block);
     }
 }
 
@@ -139,7 +136,6 @@ void Resonator::processInternal(juce::dsp::AudioBlock<float>& block, const ModPa
         return beatsPerSec / beatsPerCycle;
     };
 
-    // --- MODULATION CROISÉE DES LFO ---
     float lfo1HzBase = getLfoHz(p.lfo1Sync, p.lfo1Rate);
     float lfo2HzBase = getLfoHz(p.lfo2Sync, p.lfo2Rate);
 
