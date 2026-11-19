@@ -77,14 +77,17 @@ void Resonator::setOversampling(int factor)
     if (os2x) os2x->reset();
     if (os4x) os4x->reset();
     
-    // LA SOLUTION AU SON HACHÉ EST ICI
+    // Mise à jour de la fréquence d'échantillonnage pour tous les filtres
+    double newSr = currentSampleRate * currentOversampling;
+    juce::dsp::ProcessSpec spec { newSr, (juce::uint32)blockSize, 1 };
+    
     for (auto& ch : channels) {
         ch.delayLine.reset();
         ch.pluckDelay.reset();
-        ch.inputFilter.reset();
+        ch.inputFilter.prepare(spec); ch.inputFilter.reset();
         ch.loopFilter.reset();
         ch.dcBlocker.reset();
-        ch.modFilter.reset();
+        ch.modFilter.setCutoff(20.0f, (float) newSr);
         for (int i = 0; i < 24; ++i) ch.inharmAllpass[i].reset();
     }
 }
@@ -136,14 +139,24 @@ void Resonator::processInternal(juce::dsp::AudioBlock<float>& block, const ModPa
         return beatsPerSec / beatsPerCycle;
     };
 
-    float lfo1Hz = getLfoHz(p.lfo1Sync, p.lfo1Rate);
-    float lfo2Hz = getLfoHz(p.lfo2Sync, p.lfo2Rate);
+    // --- MODULATION CROISÉE DES LFO ---
+    float lfo1HzBase = getLfoHz(p.lfo1Sync, p.lfo1Rate);
+    float lfo2HzBase = getLfoHz(p.lfo2Sync, p.lfo2Rate);
+
+    float modLfo1 = lfo2Value * p.m2_lfo1 * 50.0f;
+    float modLfo2 = lfo1Value * p.m1_lfo2 * 50.0f;
+    
+    float lfo1Hz = juce::jlimit(0.01f, 100.0f, lfo1HzBase + modLfo1);
+    float lfo2Hz = juce::jlimit(0.01f, 100.0f, lfo2HzBase + modLfo2);
 
     lfo1.setShape(p.lfo1Shape); lfo1.setPulseWidth(p.lfo1Pw);
     lfo2.setShape(p.lfo2Shape); lfo2.setPulseWidth(p.lfo2Pw);
 
-    float l1 = p.lfo1Bypass ? 0.0f : lfo1.processBlock(lfo1Hz, numSamples, p.lfo1Phase);
-    float l2 = p.lfo2Bypass ? 0.0f : lfo2.processBlock(lfo2Hz, numSamples, p.lfo2Phase);
+    lfo1Value = p.lfo1Bypass ? 0.0f : lfo1.processBlock(lfo1Hz, numSamples, p.lfo1Phase, (float)sr);
+    lfo2Value = p.lfo2Bypass ? 0.0f : lfo2.processBlock(lfo2Hz, numSamples, p.lfo2Phase, (float)sr);
+    
+    float l1 = lfo1Value;
+    float l2 = lfo2Value;
 
     auto mod = [&](float base, float d1, float d2, float minVal, float maxVal) {
         return juce::jlimit(minVal, maxVal, base + (l1 * d1) + (l2 * d2));
