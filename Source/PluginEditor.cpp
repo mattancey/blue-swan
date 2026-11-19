@@ -18,7 +18,6 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     setupRotarySlider(wetGainSlider, wetGainLabel, "WetGain", *this);
     setupRotarySlider(jitterSlider, jitterLabel, "Drift", *this);
 
-    // Bouton Oversampling
     osButton.setLookAndFeel(&osLookAndFeel);
     osButton.onClick = [this]() {
         auto* param = processorRef.apvts.getParameter(Params::oversampling);
@@ -171,26 +170,24 @@ void BlueSwanAudioProcessorEditor::timerCallback()
     lfo2PhaseValueLabel.setText(juce::String(lfo2PhaseSlider.getValue(), 0) + "°", juce::dontSendNotification);
     lfo2PwValueLabel.setText(juce::String(lfo2PwSlider.getValue(), 2), juce::dontSendNotification);
 
-    // X1 / X2 / X4
     int osIdx = (int)processorRef.apvts.getRawParameterValue(Params::oversampling)->load();
     if (osIdx == 0) osButton.setButtonText("X1");
     else if (osIdx == 1) osButton.setButtonText("X2");
     else osButton.setButtonText("X4");
 
-    // Mise à jour de la couleur des sliders de la matrice
-    for (int i = 0; i < 14; ++i) {
-        if (i < 12) {
-            float val1 = m1Sliders[i].getValue();
-            float val2 = m2Sliders[i].getValue();
-            m1Sliders[i].setColour(juce::Slider::rotarySliderFillColourId, std::abs(val1) > 0.001f ? juce::Colours::aquamarine : juce::Colours::cyan);
-            m2Sliders[i].setColour(juce::Slider::rotarySliderFillColourId, std::abs(val2) > 0.001f ? juce::Colours::aquamarine : juce::Colours::cyan);
-        }
+    // Mise à jour de la couleur du "thumb" (le petit point)
+    for (int i = 0; i < 12; ++i) {
+        float val1 = m1Sliders[i].getValue();
+        float val2 = m2Sliders[i].getValue();
+        m1Sliders[i].setColour(juce::Slider::thumbColourId, std::abs(val1) > 0.001f ? juce::Colours::aquamarine : juce::Colours::cyan);
+        m2Sliders[i].setColour(juce::Slider::thumbColourId, std::abs(val2) > 0.001f ? juce::Colours::aquamarine : juce::Colours::cyan);
     }
+    
     float v12 = m2Sliders[12].getValue();
-    m2Sliders[12].setColour(juce::Slider::rotarySliderFillColourId, std::abs(v12) > 0.001f ? juce::Colours::aquamarine : juce::Colours::cyan);
+    m2Sliders[12].setColour(juce::Slider::thumbColourId, std::abs(v12) > 0.001f ? juce::Colours::aquamarine : juce::Colours::cyan);
     
     float v13 = m1Sliders[13].getValue();
-    m1Sliders[13].setColour(juce::Slider::rotarySliderFillColourId, std::abs(v13) > 0.001f ? juce::Colours::aquamarine : juce::Colours::cyan);
+    m1Sliders[13].setColour(juce::Slider::thumbColourId, std::abs(v13) > 0.001f ? juce::Colours::aquamarine : juce::Colours::cyan);
 
     float fb = processorRef.apvts.getRawParameterValue(Params::feedback)->load();
     float crossFb = processorRef.apvts.getRawParameterValue(Params::crossFb)->load();
