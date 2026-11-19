@@ -13,7 +13,7 @@ struct ModParams {
     float m1_pitch, m1_feed, m1_incut, m1_loopcut, m1_hbeta, m1_inharm, m1_cross, m1_self, m1_drift, m1_drywet, m1_wetgain, m1_macro;
     float m2_pitch, m2_feed, m2_incut, m2_loopcut, m2_hbeta, m2_inharm, m2_cross, m2_self, m2_drift, m2_drywet, m2_wetgain, m2_macro;
     float m1_lfo2, m2_lfo1; 
-    int oversampling; // NOUVEAU
+    int oversampling;
 };
 
 class Resonator
@@ -24,19 +24,19 @@ public:
     void reset();
     void process(juce::AudioBuffer<float>& buffer, const ModParams& p, double bpm, bool isNegative);
     
-    // NOUVEAU : Gestion de l'oversampling
     void setOversampling(int factor);
     int getLatency() const;
+    int getOversamplingFactor() const { return currentOversampling; }
 
 private:
     static constexpr float baseFreqHz = 261.63f;
     static constexpr float maxDelaySamples = 16384.0f;
     double currentSampleRate = 44100.0;
-    int currentOversampling = 1; // 1, 2 ou 4
+    int currentOversampling = 1;
     int blockSize = 512;
+    int numChannels = 2;
 
     std::unique_ptr<juce::dsp::Oversampling<float>> oversampler;
-    juce::AudioBuffer<float> oversampledBuffer; // Buffer temporaire
 
     float currentInputCutoff = 8000.0f;
     float currentLoopCutoff = 4000.0f;
@@ -97,8 +97,8 @@ private:
     std::uniform_real_distribution<float> jitterDist { -1.0f, 1.0f };
     float jitterState[2] = {0.0f, 0.0f};
 
-    float semitonesToDelaySamples(float semitones) const noexcept;
-    void processInternal(juce::AudioBuffer<float>& buffer, const ModParams& p, double bpm, bool isNegative, double sr);
+    float semitonesToDelaySamples(float semitones, double sr) const noexcept;
+    void processInternal(juce::dsp::AudioBlock<float>& block, const ModParams& p, double bpm, bool isNegative, double sr);
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Resonator)
 };
