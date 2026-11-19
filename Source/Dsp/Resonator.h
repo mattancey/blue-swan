@@ -36,7 +36,9 @@ private:
     int blockSize = 512;
     int numChannels = 2;
 
-    std::unique_ptr<juce::dsp::Oversampling<float>> oversampler;
+    // Oversamplers pré-alloués
+    std::unique_ptr<juce::dsp::Oversampling<float>> os2x;
+    std::unique_ptr<juce::dsp::Oversampling<float>> os4x;
 
     float currentInputCutoff = 8000.0f;
     float currentLoopCutoff = 4000.0f;
