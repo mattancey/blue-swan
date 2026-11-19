@@ -48,7 +48,6 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
     inharmSmoothed.reset(sampleRate, 0.05);
     pluckSmoothed.reset(sampleRate, 0.05);
     
-    // PRÉ-ALLOCATION DES OVERSAMPLERS (2x et 4x)
     os2x = std::make_unique<juce::dsp::Oversampling<float>>(numChannels, 1, juce::dsp::Oversampling<float>::filterHalfBandPolyphaseIIR);
     os2x->initProcessing(samplesPerBlock);
     
@@ -73,7 +72,21 @@ void Resonator::reset()
 
 void Resonator::setOversampling(int factor)
 {
+    if (factor == currentOversampling) return;
     currentOversampling = factor;
+    if (os2x) os2x->reset();
+    if (os4x) os4x->reset();
+    
+    // LA SOLUTION AU SON HACHÉ EST ICI
+    for (auto& ch : channels) {
+        ch.delayLine.reset();
+        ch.pluckDelay.reset();
+        ch.inputFilter.reset();
+        ch.loopFilter.reset();
+        ch.dcBlocker.reset();
+        ch.modFilter.reset();
+        for (int i = 0; i < 24; ++i) ch.inharmAllpass[i].reset();
+    }
 }
 
 int Resonator::getLatency() const
