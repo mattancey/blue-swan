@@ -52,6 +52,7 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     auto setupMini = [this](juce::Slider& s) {
         s.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
         s.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+        s.setLookAndFeel(&matrixLookAndFeel); // Application du look and feel
         addChildComponent(s);
     };
 
@@ -148,6 +149,10 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
 
 BlueSwanAudioProcessorEditor::~BlueSwanAudioProcessorEditor() 
 { 
+    for (int i = 0; i < 14; ++i) {
+        m1Sliders[i].setLookAndFeel(nullptr);
+        m2Sliders[i].setLookAndFeel(nullptr);
+    }
     osButton.setLookAndFeel(nullptr);
     stopTimer(); 
 }
@@ -174,20 +179,6 @@ void BlueSwanAudioProcessorEditor::timerCallback()
     if (osIdx == 0) osButton.setButtonText("X1");
     else if (osIdx == 1) osButton.setButtonText("X2");
     else osButton.setButtonText("X4");
-
-    // Mise à jour de la couleur du "thumb" (le petit point)
-    for (int i = 0; i < 12; ++i) {
-        float val1 = m1Sliders[i].getValue();
-        float val2 = m2Sliders[i].getValue();
-        m1Sliders[i].setColour(juce::Slider::thumbColourId, std::abs(val1) > 0.001f ? juce::Colours::aquamarine : juce::Colours::cyan);
-        m2Sliders[i].setColour(juce::Slider::thumbColourId, std::abs(val2) > 0.001f ? juce::Colours::aquamarine : juce::Colours::cyan);
-    }
-    
-    float v12 = m2Sliders[12].getValue();
-    m2Sliders[12].setColour(juce::Slider::thumbColourId, std::abs(v12) > 0.001f ? juce::Colours::aquamarine : juce::Colours::cyan);
-    
-    float v13 = m1Sliders[13].getValue();
-    m1Sliders[13].setColour(juce::Slider::thumbColourId, std::abs(v13) > 0.001f ? juce::Colours::aquamarine : juce::Colours::cyan);
 
     float fb = processorRef.apvts.getRawParameterValue(Params::feedback)->load();
     float crossFb = processorRef.apvts.getRawParameterValue(Params::crossFb)->load();
