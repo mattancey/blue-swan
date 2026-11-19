@@ -36,7 +36,6 @@ private:
     int blockSize = 512;
     int numChannels = 2;
 
-    // Oversamplers pré-alloués
     std::unique_ptr<juce::dsp::Oversampling<float>> os2x;
     std::unique_ptr<juce::dsp::Oversampling<float>> os4x;
 
@@ -81,6 +80,8 @@ private:
     std::vector<ChannelState> channels;
     
     LFO lfo1, lfo2;
+    float lfo1Value = 0.0f; // Variable pour la modulation croisée
+    float lfo2Value = 0.0f; // Variable pour la modulation croisée
 
     juce::SmoothedValue<float> pitchSemitonesSmoothed;
     juce::SmoothedValue<float> feedbackSmoothed;
