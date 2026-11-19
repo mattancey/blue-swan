@@ -52,7 +52,7 @@ BlueSwanAudioProcessorEditor::BlueSwanAudioProcessorEditor(BlueSwanAudioProcesso
     auto setupMini = [this](juce::Slider& s) {
         s.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
         s.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        s.setLookAndFeel(&matrixLookAndFeel); // Application du look and feel
+        s.setLookAndFeel(&matrixLookAndFeel);
         addChildComponent(s);
     };
 
@@ -180,10 +180,11 @@ void BlueSwanAudioProcessorEditor::timerCallback()
     else if (osIdx == 1) osButton.setButtonText("X2");
     else osButton.setButtonText("X4");
 
+    // SEUIL DE COULEUR ROUGE MODIFIÉ À 0.5
     float fb = processorRef.apvts.getRawParameterValue(Params::feedback)->load();
     float crossFb = processorRef.apvts.getRawParameterValue(Params::crossFb)->load();
     juce::Colour finalColor = juce::Colours::black;
-    if (fb > 0.6f && crossFb > 0.3f) {
+    if (fb > 0.5f && crossFb > 0.3f) {
         if (crossFb < 0.6f) finalColor = finalColor.interpolatedWith(juce::Colours::red, (crossFb - 0.3f) / 0.3f);
         else finalColor = juce::Colours::red;
     }
