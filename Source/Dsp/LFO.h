@@ -11,9 +11,9 @@ public:
     void setShape(int shape) { currentShape = shape; }
     void setPulseWidth(float w) { pulseWidth = w; }
 
-    float processBlock(float frequencyHz, int numSamples, float phaseOffsetDegrees)
+    float processBlock(float frequencyHz, int numSamples, float phaseOffsetDegrees, float sr)
     {
-        phase += (frequencyHz * (float)numSamples) / (float)sampleRate;
+        phase += (frequencyHz * (float)numSamples) / sr;
         if (phase >= 1.0f) {
             phase -= std::floor(phase);
             shValue = dist(gen);
@@ -32,7 +32,7 @@ public:
             case 3: val = p < 0.5f ? 1.0f : -1.0f; break;
             case 4: val = p < pulseWidth ? 1.0f : -1.0f; break;
             case 5: val = p < 0.9f ? (p / 0.9f) * 2.0f - 1.0f : -1.0f; break;
-            case 6: val = (1.0f - std::exp(-5.0f * p)) * 2.0f - 1.0f; break; // Exp Rse
+            case 6: val = (1.0f - std::exp(-5.0f * p)) * 2.0f - 1.0f; break;
             case 7: val = shValue; break;
             case 8: smoothValue += 0.01f * (shValue - smoothValue); val = smoothValue; break;
             case 9: logX = 3.6f * logX * (1.0f - logX); val = logX * 2.0f - 1.0f; break;
