@@ -100,8 +100,8 @@ namespace Params
         addDepth(m1_macro, "M1 Macro"); addDepth(m2_macro, "M2 Macro");
         addDepth(m1_lfo2, "M1 LFO2"); addDepth(m2_lfo1, "M2 LFO1"); 
 
-        // Nouveau choix avec le crane
-        layout.add(std::make_unique<juce::AudioParameterChoice>(oversampling, "Oversampling", juce::StringArray{"1x", "\u2620", "4x"}, 0));
+        // X2 au lieu du crane
+        layout.add(std::make_unique<juce::AudioParameterChoice>(oversampling, "Oversampling", juce::StringArray{"X1", "X2", "X4"}, 0));
 
         return layout;
     }
