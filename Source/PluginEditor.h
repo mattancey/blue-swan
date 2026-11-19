@@ -43,9 +43,10 @@ private:
     
     juce::Label lfo1RowLabel, lfo2RowLabel;
 
-    // --- NOUVEAU BOUTON OVERSAMPLING ---
     SquareToggleLookAndFeel osLookAndFeel;
     juce::TextButton osButton;
+    
+    MatrixLookAndFeel matrixLookAndFeel; // Ajouté
 
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     using ComboAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
