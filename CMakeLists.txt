@@ -19,11 +19,11 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(JUCE)
 
-# --- ChowDSP Utils ---
+# --- ChowDSP Utils (Correction : master au lieu de main) ---
 FetchContent_Declare(
     chowdsp_utils
     GIT_REPOSITORY https://github.com/Chowdhury-DSP/chowdsp_utils.git
-    GIT_TAG main
+    GIT_TAG master  # <-- LA CORRECTION EST ICI
 )
 FetchContent_MakeAvailable(chowdsp_utils)
 
@@ -58,7 +58,7 @@ target_compile_definitions(BlueSwan PUBLIC
 target_link_libraries(BlueSwan PRIVATE
     juce::juce_audio_utils
     juce::juce_dsp
-    chowdsp::chowdsp_dsp
+    chowdsp::chowdsp_dsp_utils # <-- Le nom correct du module
     juce::juce_recommended_config_flags
     juce::juce_recommended_lto_flags
     juce::juce_recommended_warning_flags
