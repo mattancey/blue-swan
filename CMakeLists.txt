@@ -23,7 +23,7 @@ FetchContent_MakeAvailable(JUCE)
 FetchContent_Declare(
     chowdsp_utils
     GIT_REPOSITORY https://github.com/Chowdhury-DSP/chowdsp_utils.git
-    GIT_TAG master
+    GIT_TAG main
 )
 FetchContent_MakeAvailable(chowdsp_utils)
 
@@ -58,7 +58,7 @@ target_compile_definitions(BlueSwan PUBLIC
 target_link_libraries(BlueSwan PRIVATE
     juce::juce_audio_utils
     juce::juce_dsp
-    chowdsp::chowdsp_dsp_utils # <-- Nouvelle dépendance
+    chowdsp::chowdsp_dsp
     juce::juce_recommended_config_flags
     juce::juce_recommended_lto_flags
     juce::juce_recommended_warning_flags
