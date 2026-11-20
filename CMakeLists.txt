@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(BlueSwan VERSION 0.7.0)
+project(BlueSwan VERSION 0.9.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -10,12 +10,22 @@ if(APPLE)
 endif()
 
 include(FetchContent)
+
+# --- JUCE ---
 FetchContent_Declare(
     JUCE
     GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
     GIT_TAG 8.0.6 
 )
 FetchContent_MakeAvailable(JUCE)
+
+# --- ChowDSP Utils ---
+FetchContent_Declare(
+    chowdsp_utils
+    GIT_REPOSITORY https://github.com/Chowdhury-DSP/chowdsp_utils.git
+    GIT_TAG master
+)
+FetchContent_MakeAvailable(chowdsp_utils)
 
 juce_add_plugin(BlueSwan
     COMPANY_NAME "Personal"
@@ -24,7 +34,7 @@ juce_add_plugin(BlueSwan
     NEEDS_MIDI_OUTPUT FALSE
     IS_MIDI_EFFECT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
-    COPY_PLUGIN_AFTER_BUILD FALSE # TRÈS IMPORTANT POUR GITHUB
+    COPY_PLUGIN_AFTER_BUILD FALSE
     PLUGIN_MANUFACTURER_CODE Pers
     PLUGIN_CODE BlSw
     FORMATS AU VST3 Standalone
@@ -48,6 +58,7 @@ target_compile_definitions(BlueSwan PUBLIC
 target_link_libraries(BlueSwan PRIVATE
     juce::juce_audio_utils
     juce::juce_dsp
+    chowdsp::chowdsp_dsp_utils # <-- Nouvelle dépendance
     juce::juce_recommended_config_flags
     juce::juce_recommended_lto_flags
     juce::juce_recommended_warning_flags
