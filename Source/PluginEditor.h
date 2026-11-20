@@ -32,21 +32,20 @@ private:
     juce::TextButton lfo1BypassButton, lfo2BypassButton;
     
     CustomComboBox lfo1SyncBox, lfo1ShapeBox, lfo2SyncBox, lfo2ShapeBox;
-    juce::Slider lfo1RateSlider, lfo1PhaseSlider, lfo1PwSlider;
-    juce::Slider lfo2RateSlider, lfo2PhaseSlider, lfo2PwSlider;
+    juce::Slider lfo1RateSlider, lfo1PhaseSlider, lfo1PwSlider, lfo1SmoothSlider;
+    juce::Slider lfo2RateSlider, lfo2PhaseSlider, lfo2PwSlider, lfo2SmoothSlider;
     
-    juce::Label lfo1RateNameLabel, lfo1PhaseNameLabel, lfo1PwNameLabel;
-    juce::Label lfo2RateNameLabel, lfo2PhaseNameLabel, lfo2PwNameLabel;
+    juce::Label lfo1RateNameLabel, lfo1PhaseNameLabel, lfo1PwNameLabel, lfo1SmoothNameLabel;
+    juce::Label lfo2RateNameLabel, lfo2PhaseNameLabel, lfo2PwNameLabel, lfo2SmoothNameLabel;
     
-    juce::Label lfo1RateValueLabel, lfo1PhaseValueLabel, lfo1PwValueLabel;
-    juce::Label lfo2RateValueLabel, lfo2PhaseValueLabel, lfo2PwValueLabel;
+    juce::Label lfo1RateValueLabel, lfo1PhaseValueLabel, lfo1PwValueLabel, lfo1SmoothValueLabel;
+    juce::Label lfo2RateValueLabel, lfo2PhaseValueLabel, lfo2PwValueLabel, lfo2SmoothValueLabel;
     
     juce::Label lfo1RowLabel, lfo2RowLabel;
 
     SquareToggleLookAndFeel osLookAndFeel;
     juce::TextButton osButton;
-    
-    MatrixLookAndFeel matrixLookAndFeel; // Ajouté
+    MatrixLookAndFeel matrixLookAndFeel;
 
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     using ComboAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
@@ -55,7 +54,7 @@ private:
     std::unique_ptr<SliderAttachment> mainAtts[12], m1Atts[14], m2Atts[14];
     std::unique_ptr<ComboAttachment> polarityAtt;
     std::unique_ptr<ComboAttachment> lfo1SyncAtt, lfo1ShapeAtt, lfo2SyncAtt, lfo2ShapeAtt;
-    std::unique_ptr<SliderAttachment> lfo1RateAtt, lfo1PhaseAtt, lfo1PwAtt, lfo2RateAtt, lfo2PhaseAtt, lfo2PwAtt;
+    std::unique_ptr<SliderAttachment> lfo1RateAtt, lfo1PhaseAtt, lfo1PwAtt, lfo1SmoothAtt, lfo2RateAtt, lfo2PhaseAtt, lfo2PwAtt, lfo2SmoothAtt;
     std::unique_ptr<ButtonAttachment> lfo1BypassAtt, lfo2BypassAtt;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BlueSwanAudioProcessorEditor)
