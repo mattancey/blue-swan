@@ -1,6 +1,5 @@
 #pragma once
 #include <juce_dsp/juce_dsp.h>
-#include <chowdsp_dsp_utils/chowdsp_dsp_utils.h>
 #include <vector>
 #include <random>
 #include <cmath>
@@ -34,8 +33,9 @@ private:
     double currentSampleRate = 44100.0;
     int blockSize = 512;
     int numChannels = 2;
+    int currentOversampling = 1;
 
-    std::unique_ptr<chowdsp::VariableOversampling<float>> oversampler;
+    std::unique_ptr<juce::dsp::Oversampling<float>> oversampler;
 
     float currentInputCutoff = 8000.0f;
     float currentLoopCutoff = 4000.0f;
@@ -100,6 +100,7 @@ private:
 
     float semitonesToDelaySamples(float semitones, double sr) const noexcept;
     void processInternal(juce::dsp::AudioBlock<float>& block, const ModParams& p, double bpm, bool isNegative, double sr);
+    void updateOversampling(int factor);
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Resonator)
 };
