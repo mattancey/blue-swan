@@ -1,6 +1,6 @@
 #pragma once
 #include <juce_dsp/juce_dsp.h>
-#include <chowdsp_dsp_utils/chowdsp_dsp_utils.h> // Assure-toi que ce chemin est correct
+#include <chowdsp_dsp_utils/chowdsp_dsp_utils.h>
 #include <vector>
 #include <random>
 #include <cmath>
@@ -21,7 +21,7 @@ class Resonator
 {
 public:
     Resonator();
-    void prepare(double sampleRate, int samplesPerBlock, int numChannels);
+    void prepare(double sampleRate, int samplesPerBlock, int numChans); // Paramètre renommé
     void reset();
     void process(juce::AudioBuffer<float>& buffer, const ModParams& p, double bpm, bool isNegative);
     
