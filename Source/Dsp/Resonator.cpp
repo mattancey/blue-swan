@@ -47,7 +47,6 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
     inharmSmoothed.reset(sampleRate, 0.05);
     pluckSmoothed.reset(sampleRate, 0.05);
     
-    // Initialisation de ChowDSP VariableOversampling
     oversampler = std::make_unique<chowdsp::VariableOversampling<float>>(numChannels, sampleRate, samplesPerBlock);
 }
 
@@ -79,12 +78,10 @@ int Resonator::getOversamplingFactor() const
 
 void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, double bpm, bool isNegative)
 {
-    // 0=X1, 1=X2, 2=X4
     int osFactor = (p.oversampling == 0) ? 1 : ((p.oversampling == 1) ? 2 : 4);
     
     if (oversampler->getOSFactor() != osFactor) {
         oversampler->setOSFactor(osFactor);
-        // On force le reset complet de la chaîne audio lors du changement
         for (auto& ch : channels) {
             ch.delayLine.reset(); ch.pluckDelay.reset(); ch.inputFilter.reset(); ch.loopFilter.reset();
             ch.dcBlocker.reset(); ch.modFilter.reset();
