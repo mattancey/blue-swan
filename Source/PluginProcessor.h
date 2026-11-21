@@ -34,7 +34,6 @@ public:
     juce::AudioProcessorValueTreeState apvts;
 
 private:
-    void updateLatency();
     Resonator resonator;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BlueSwanAudioProcessor)
 };
