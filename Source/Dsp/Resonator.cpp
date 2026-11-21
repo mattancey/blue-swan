@@ -15,11 +15,11 @@ Resonator::Resonator()
     jitterGen.seed(std::random_device{}());
 }
 
-void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChannels)
+void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChans)
 {
     currentSampleRate = sampleRate;
     blockSize = samplesPerBlock;
-    this->numChannels = numChannels;
+    numChannels = numChans;
 
     juce::dsp::ProcessSpec spec { sampleRate, (juce::uint32)samplesPerBlock, (juce::uint32)numChannels };
 
