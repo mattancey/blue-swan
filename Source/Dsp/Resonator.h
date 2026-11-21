@@ -1,6 +1,6 @@
 #pragma once
 #include <juce_dsp/juce_dsp.h>
-#include <chowdsp_dsp_utils/chowdsp_dsp_utils.h>
+#include <chowdsp_dsp_utils/chowdsp_dsp_utils.h> // Assure-toi que ce chemin est correct
 #include <vector>
 #include <random>
 #include <cmath>
