@@ -20,9 +20,10 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChans)
     currentSampleRate = sampleRate;
     blockSize = samplesPerBlock;
     numChannels = numChans;
-    currentOversampling = 1;
 
-    juce::dsp::ProcessSpec spec { sampleRate, (juce::uint32)samplesPerBlock, (juce::uint32)numChannels };
+    // Préparation des filtres avec la fréquence d'échantillonnage suréchantillonnée (X2)
+    double osSampleRate = sampleRate * 2.0;
+    juce::dsp::ProcessSpec spec { osSampleRate, (juce::uint32)samplesPerBlock, (juce::uint32)numChannels };
 
     channels.resize((size_t) numChannels);
     for (auto& ch : channels) {
@@ -30,59 +31,28 @@ void Resonator::prepare(double sampleRate, int samplesPerBlock, int numChans)
         ch.pluckDelay.prepare(spec); ch.pluckDelay.reset();
         ch.inputFilter.prepare(spec); ch.inputFilter.setType(juce::dsp::StateVariableTPTFilterType::lowpass); ch.inputFilter.reset();
         ch.loopFilter.reset(); ch.dcBlocker.reset();
-        ch.modFilter.setCutoff(20.0f, (float) sampleRate);
+        ch.modFilter.setCutoff(20.0f, (float) osSampleRate);
         for (int i = 0; i < 24; ++i) ch.inharmAllpass[i].reset();
     }
 
-    lfo1.prepare(sampleRate); lfo2.prepare(sampleRate);
+    lfo1.prepare(osSampleRate); lfo2.prepare(osSampleRate);
 
-    pitchSemitonesSmoothed.reset(sampleRate, 0.05);
-    feedbackSmoothed.reset(sampleRate, 0.02);
-    dryWetSmoothed.reset(sampleRate, 0.02);
-    jitterSmoothed.reset(sampleRate, 0.1);
-    crossFbSmoothed.reset(sampleRate, 0.05);
-    selfModSmoothed.reset(sampleRate, 0.05);
-    wetGainSmoothed.reset(sampleRate, 0.02);
-    gateSmoothed.reset(sampleRate, 2.0);
+    pitchSemitonesSmoothed.reset(osSampleRate, 0.05);
+    feedbackSmoothed.reset(osSampleRate, 0.02);
+    dryWetSmoothed.reset(osSampleRate, 0.02);
+    jitterSmoothed.reset(osSampleRate, 0.1);
+    crossFbSmoothed.reset(osSampleRate, 0.05);
+    selfModSmoothed.reset(osSampleRate, 0.05);
+    wetGainSmoothed.reset(osSampleRate, 0.02);
+    gateSmoothed.reset(osSampleRate, 2.0);
     gateSmoothed.setCurrentAndTargetValue(0.0f);
-    inharmSmoothed.reset(sampleRate, 0.05);
-    pluckSmoothed.reset(sampleRate, 0.05);
+    inharmSmoothed.reset(osSampleRate, 0.05);
+    pluckSmoothed.reset(osSampleRate, 0.05);
     
-    // Création initiale de l'oversampler en X1
-    oversampler = std::make_unique<juce::dsp::Oversampling<float>>(numChannels, 0, juce::dsp::Oversampling<float>::filterHalfBandPolyphaseIIR);
+    // Initialisation de l'oversampler fixe X2 (log2(2) = 1)
+    oversampler = std::make_unique<juce::dsp::Oversampling<float>>(numChannels, 1, juce::dsp::Oversampling<float>::filterHalfBandPolyphaseIIR);
     oversampler->initProcessing(samplesPerBlock);
     oversampler->reset();
-}
-
-void Resonator::updateOversampling(int factor)
-{
-    if (factor == currentOversampling) return;
-    currentOversampling = factor;
-    
-    // 1. Recréer l'oversampler avec le nouveau facteur
-    int osLog2 = (factor == 2) ? 1 : ((factor == 4) ? 2 : 0);
-    oversampler.reset();
-    oversampler = std::make_unique<juce::dsp::Oversampling<float>>(numChannels, osLog2, juce::dsp::Oversampling<float>::filterHalfBandPolyphaseIIR);
-    oversampler->initProcessing(blockSize);
-    oversampler->reset();
-    
-    // 2. Réinitialiser TOUS les filtres et délais avec la nouvelle fréquence d'échantillonnage
-    double newSr = currentSampleRate * (double)factor;
-    juce::dsp::ProcessSpec spec { newSr, (juce::uint32)blockSize, (juce::uint32)numChannels };
-    
-    for (auto& ch : channels) {
-        ch.delayLine.prepare(spec); ch.delayLine.reset();
-        ch.pluckDelay.prepare(spec); ch.pluckDelay.reset();
-        ch.inputFilter.prepare(spec); ch.inputFilter.reset();
-        ch.loopFilter.reset();
-        ch.dcBlocker.reset();
-        ch.modFilter.setCutoff(20.0f, (float) newSr);
-        for (int i = 0; i < 24; ++i) ch.inharmAllpass[i].reset();
-    }
-    
-    // 3. Réinitialiser les LFO avec la nouvelle fréquence
-    lfo1.prepare(newSr);
-    lfo2.prepare(newSr);
 }
 
 void Resonator::reset()
@@ -105,28 +75,12 @@ int Resonator::getLatency() const
     return 0;
 }
 
-int Resonator::getOversamplingFactor() const
-{
-    return currentOversampling;
-}
-
 void Resonator::process(juce::AudioBuffer<float>& buffer, const ModParams& p, double bpm, bool isNegative)
 {
-    // 0 = X1, 1 = X2, 2 = X4
-    int osFactor = (p.oversampling == 0) ? 1 : ((p.oversampling == 1) ? 2 : 4);
-    
-    // Mise à jour de l'oversampling si nécessaire
-    updateOversampling(osFactor);
-
     juce::dsp::AudioBlock<float> block(buffer);
-    
-    if (osFactor == 1) {
-        processInternal(block, p, bpm, isNegative, currentSampleRate);
-    } else {
-        auto upBlock = oversampler->processSamplesUp(block);
-        processInternal(upBlock, p, bpm, isNegative, currentSampleRate * (double)osFactor);
-        oversampler->processSamplesDown(block);
-    }
+    auto upBlock = oversampler->processSamplesUp(block);
+    processInternal(upBlock, p, bpm, isNegative, currentSampleRate * 2.0);
+    oversampler->processSamplesDown(block);
 }
 
 void Resonator::processInternal(juce::dsp::AudioBlock<float>& block, const ModParams& p, double bpm, bool isNegative, double sr)
