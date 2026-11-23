@@ -11,7 +11,7 @@ BlueSwanAudioProcessor::~BlueSwanAudioProcessor() {}
 
 void BlueSwanAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) { 
     resonator.prepare(sampleRate, samplesPerBlock, 2); 
-    setLatencySamples(0); // La latence sera mise à jour par le Resonator si nécessaire
+    setLatencySamples(resonator.getLatency()); // Compensation de latence
 }
 void BlueSwanAudioProcessor::releaseResources() { resonator.reset(); }
 
@@ -58,8 +58,6 @@ void BlueSwanAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     p.m1_wetgain = get(Params::m1_wetgain); p.m2_wetgain = get(Params::m2_wetgain);
     p.m1_macro = get(Params::m1_macro); p.m2_macro = get(Params::m2_macro);
     p.m1_lfo2 = get(Params::m1_lfo2); p.m2_lfo1 = get(Params::m2_lfo1);
-
-    p.oversampling = (int)get(Params::oversampling);
 
     bool isNeg = get(Params::polarity) > 0.5f;
     resonator.process(buffer, p, bpm, isNeg);
