@@ -13,6 +13,7 @@ struct ModParams {
     float m1_pitch, m1_feed, m1_incut, m1_loopcut, m1_hbeta, m1_inharm, m1_cross, m1_self, m1_drift, m1_drywet, m1_wetgain, m1_macro;
     float m2_pitch, m2_feed, m2_incut, m2_loopcut, m2_hbeta, m2_inharm, m2_cross, m2_self, m2_drift, m2_drywet, m2_wetgain, m2_macro;
     float m1_lfo2, m2_lfo1; 
+    int oversampling; // Remis pour compatibilité (ignoré par le DSP)
 };
 
 class Resonator
@@ -32,7 +33,6 @@ private:
     int blockSize = 512;
     int numChannels = 2;
 
-    // Oversampling fixe X2
     std::unique_ptr<juce::dsp::Oversampling<float>> oversampler;
 
     float currentInputCutoff = 8000.0f;
