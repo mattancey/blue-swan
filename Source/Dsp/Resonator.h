@@ -13,19 +13,17 @@ struct ModParams {
     float m1_pitch, m1_feed, m1_incut, m1_loopcut, m1_hbeta, m1_inharm, m1_cross, m1_self, m1_drift, m1_drywet, m1_wetgain, m1_macro;
     float m2_pitch, m2_feed, m2_incut, m2_loopcut, m2_hbeta, m2_inharm, m2_cross, m2_self, m2_drift, m2_drywet, m2_wetgain, m2_macro;
     float m1_lfo2, m2_lfo1; 
-    int oversampling;
 };
 
 class Resonator
 {
 public:
     Resonator();
-    void prepare(double sampleRate, int samplesPerBlock, int numChans); // Paramètre renommé
+    void prepare(double sampleRate, int samplesPerBlock, int numChans);
     void reset();
     void process(juce::AudioBuffer<float>& buffer, const ModParams& p, double bpm, bool isNegative);
     
     int getLatency() const;
-    int getOversamplingFactor() const;
 
 private:
     static constexpr float baseFreqHz = 261.63f;
@@ -33,8 +31,8 @@ private:
     double currentSampleRate = 44100.0;
     int blockSize = 512;
     int numChannels = 2;
-    int currentOversampling = 1;
 
+    // Oversampling fixe X2
     std::unique_ptr<juce::dsp::Oversampling<float>> oversampler;
 
     float currentInputCutoff = 8000.0f;
@@ -100,7 +98,6 @@ private:
 
     float semitonesToDelaySamples(float semitones, double sr) const noexcept;
     void processInternal(juce::dsp::AudioBlock<float>& block, const ModParams& p, double bpm, bool isNegative, double sr);
-    void updateOversampling(int factor);
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Resonator)
 };
